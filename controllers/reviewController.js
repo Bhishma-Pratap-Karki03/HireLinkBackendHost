@@ -13,6 +13,13 @@ const FEED_NOTIFICATION_TYPES = [
   "company_review_received",
 ];
 
+const resolveAssetUrl = (assetPath) => {
+  if (!assetPath) return "";
+  if (assetPath.startsWith("http")) return assetPath;
+  const baseUrl = (process.env.BACKEND_PUBLIC_URL || "").replace(/\/$/, "");
+  return baseUrl ? `${baseUrl}${assetPath}` : assetPath;
+};
+
 const buildReviewPayload = (review, user) => ({
   id: review._id,
   rating: review.rating,
@@ -27,11 +34,7 @@ const buildReviewPayload = (review, user) => ({
     month: "long",
     day: "numeric",
   }),
-  reviewerAvatar: user?.profilePicture
-    ? user.profilePicture.startsWith("http")
-      ? user.profilePicture
-      : `http://localhost:5000${user.profilePicture}`
-    : "",
+  reviewerAvatar: resolveAssetUrl(user?.profilePicture || ""),
   status: review.status,
 });
 
@@ -134,11 +137,7 @@ const getCompanyReviews = async (req, res, next) => {
       const reviewerLocation = reviewer?.address || "Unknown";
       const reviewerRole =
         review.reviewerRole || reviewer?.currentJobTitle || "";
-      const reviewerAvatar = reviewer?.profilePicture
-        ? reviewer.profilePicture.startsWith("http")
-          ? reviewer.profilePicture
-          : `http://localhost:5000${reviewer.profilePicture}`
-        : "";
+      const reviewerAvatar = resolveAssetUrl(reviewer?.profilePicture || "");
 
       return {
       id: review._id,
@@ -219,11 +218,7 @@ const getCompanyReviewsForRecruiter = async (req, res, next) => {
       const reviewerLocation = reviewer?.address || "Unknown";
       const reviewerRole =
         review.reviewerRole || reviewer?.currentJobTitle || "";
-      const reviewerAvatar = reviewer?.profilePicture
-        ? reviewer.profilePicture.startsWith("http")
-          ? reviewer.profilePicture
-          : `http://localhost:5000${reviewer.profilePicture}`
-        : "";
+      const reviewerAvatar = resolveAssetUrl(reviewer?.profilePicture || "");
 
       return {
       id: review._id,
@@ -512,11 +507,7 @@ const submitReview = async (req, res, next) => {
           month: "long",
           day: "numeric",
         }),
-        reviewerAvatar: savedReview.userId.profilePicture
-          ? savedReview.userId.profilePicture.startsWith("http")
-            ? savedReview.userId.profilePicture
-            : `http://localhost:5000${savedReview.userId.profilePicture}`
-          : "",
+        reviewerAvatar: resolveAssetUrl(savedReview.userId.profilePicture || ""),
         status: savedReview.status,
       },
     });
@@ -566,11 +557,7 @@ const getMyReview = async (req, res, next) => {
           month: "long",
           day: "numeric",
         }),
-        reviewerAvatar: review.userId.profilePicture
-          ? review.userId.profilePicture.startsWith("http")
-            ? review.userId.profilePicture
-            : `http://localhost:5000${review.userId.profilePicture}`
-          : "",
+        reviewerAvatar: resolveAssetUrl(review.userId.profilePicture || ""),
         status: review.status,
       },
     });
@@ -969,11 +956,7 @@ const updateReview = async (req, res, next) => {
           month: "long",
           day: "numeric",
         }),
-        reviewerAvatar: updatedReview.userId.profilePicture
-          ? updatedReview.userId.profilePicture.startsWith("http")
-            ? updatedReview.userId.profilePicture
-            : `http://localhost:5000${updatedReview.userId.profilePicture}`
-          : "",
+        reviewerAvatar: resolveAssetUrl(updatedReview.userId.profilePicture || ""),
         status: updatedReview.status,
       },
     });
