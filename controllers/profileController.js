@@ -2,8 +2,8 @@
 
 const profileService = require("../services/profileService");
 const User = require("../models/userModel");
-const path = require("path");
 const fs = require("fs");
+const { uploadFileToCloudinary, deleteFromCloudinary } = require("../utils/cloudinary");
 
 // Get current user's profile
 exports.getMyProfile = async (req, res) => {
@@ -76,8 +76,6 @@ exports.updateProfile = async (req, res) => {
 
 // Upload profile picture
 exports.uploadProfilePicture = async (req, res) => {
-  let tempFileCleaned = false;
-
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -86,23 +84,10 @@ exports.uploadProfilePicture = async (req, res) => {
       });
     }
 
-    console.log(
-      "Uploading file:",
-      req.file.filename,
-      "from temp:",
-      req.file.path
-    );
-
     // Find user to determine role
     const user = await User.findById(req.user.id);
     if (!user) {
-      // Delete temporary file
-      const tempPath = req.file.path;
-      if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
-        tempFileCleaned = true;
-        console.log("Deleted temp file after user not found");
-      }
+      if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
       return res.status(404).json({
         success: false,
@@ -110,61 +95,23 @@ exports.uploadProfilePicture = async (req, res) => {
       });
     }
 
-    // Create role-based folder path
-    const roleFolder =
-      user.role === "recruiter" ? "RecruiterProfiles" : "CandidateProfiles";
-    const targetDir = path.join(
-      __dirname,
-      "..",
-      "public",
-      "uploads",
-      "profiles",
-      roleFolder
-    );
+    const roleFolder = user.role === "recruiter" ? "RecruiterProfiles" : "CandidateProfiles";
 
-    // Create role folder if it doesn't exist
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-      console.log("Created directory:", targetDir);
-    }
+    const uploadResult = await uploadFileToCloudinary(req.file.path, {
+      folder: `hirelink/profiles/${roleFolder}`,
+      resource_type: "image",
+      overwrite: true,
+    });
 
-    // Move file from temp to role folder
-    const tempPath = req.file.path;
-    const targetPath = path.join(targetDir, req.file.filename);
+    if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-    // Check if temp file exists
-    if (!fs.existsSync(tempPath)) {
-      console.error("Temp file does not exist:", tempPath);
-      return res.status(500).json({
-        success: false,
-        message: "Uploaded file not found",
-      });
-    }
-
-    // Move the file
-    fs.renameSync(tempPath, targetPath);
-    tempFileCleaned = true;
-    console.log("File moved from temp to:", targetPath);
-
-    // Create relative URL
-    const profilePictureUrl = `/uploads/profiles/${roleFolder}/${req.file.filename}`;
-
-    // Delete old profile picture if it exists and is not default
-    if (user.profilePicture && user.profilePicture !== "") {
-      const oldImagePath = path.join(
-        __dirname,
-        "..",
-        "public",
-        user.profilePicture
-      );
-      if (fs.existsSync(oldImagePath) && oldImagePath !== targetPath) {
-        fs.unlinkSync(oldImagePath);
-        console.log("Deleted old profile picture:", oldImagePath);
-      }
+    if (user.profilePicturePublicId) {
+      await deleteFromCloudinary(user.profilePicturePublicId, { resource_type: "image" });
     }
 
     // Update user with new profile picture
-    user.profilePicture = profilePictureUrl;
+    user.profilePicture = uploadResult.secure_url || "";
+    user.profilePicturePublicId = uploadResult.public_id || "";
     await user.save();
 
     // Get updated user data without sensitive information
@@ -172,23 +119,20 @@ exports.uploadProfilePicture = async (req, res) => {
       "-password -verificationCode -resetCode"
     );
 
-    console.log("Profile picture uploaded successfully:", profilePictureUrl);
-
     res.status(200).json({
       success: true,
       message: "Profile picture uploaded successfully",
-      profilePicture: profilePictureUrl,
+      profilePicture: user.profilePicture,
       user: updatedUser,
     });
   } catch (error) {
     console.error("Upload profile picture error:", error);
 
-    // Clean up temp file if it exists and wasn't already cleaned
-    if (req.file && req.file.path && !tempFileCleaned) {
+    // Clean up temp file if it exists
+    if (req.file && req.file.path) {
       try {
         if (fs.existsSync(req.file.path)) {
           fs.unlinkSync(req.file.path);
-          console.log("Cleaned up temp file after error:", req.file.path);
         }
       } catch (cleanupError) {
         console.error("Error cleaning up temp file:", cleanupError);

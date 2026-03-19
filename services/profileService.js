@@ -2,6 +2,7 @@ const User = require("../models/userModel");
 const ConnectionRequest = require("../models/connectionRequestModel");
 const path = require("path");
 const fs = require("fs");
+const { deleteFromCloudinary } = require("../utils/cloudinary");
 
 class ProfileService {
   // Get current user's profile information
@@ -171,21 +172,30 @@ class ProfileService {
       throw new Error("User not found");
     }
 
-    // Delete the profile picture file from server if it exists and is not empty
-    if (user.profilePicture && user.profilePicture !== "") {
-      const imagePath = path.join(
-        __dirname,
-        "..",
-        "public",
-        user.profilePicture
-      );
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+    // Delete cloudinary asset when available
+    if (user.profilePicturePublicId) {
+      try {
+        await deleteFromCloudinary(user.profilePicturePublicId, {
+          resource_type: "image",
+        });
+      } catch (error) {
+        console.error("Error deleting cloudinary profile picture:", error);
       }
+    }
+
+    // Backward compatibility: delete old local file path if present
+    if (
+      user.profilePicture &&
+      user.profilePicture !== "" &&
+      !String(user.profilePicture).startsWith("http")
+    ) {
+      const imagePath = path.join(__dirname, "..", "public", user.profilePicture);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
 
     // Clear profile picture field in user document
     user.profilePicture = "";
+    user.profilePicturePublicId = "";
     await user.save();
 
     return {

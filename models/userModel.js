@@ -410,6 +410,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    profilePicturePublicId: {
+      type: String,
+      default: "",
+    },
 
     profileVisibility: {
       type: String,
