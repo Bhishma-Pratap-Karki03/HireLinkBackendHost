@@ -19,6 +19,7 @@ const appliedJobSchema = new mongoose.Schema(
     jobTitle: { type: String, required: true },
     companyName: { type: String, required: true },
     resumeUrl: { type: String, required: true },
+    resumePublicId: { type: String, default: "" },
     resumeFileName: { type: String, required: true },
     resumeFileSize: { type: Number, required: true },
     message: { type: String, default: "" },

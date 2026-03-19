@@ -3,8 +3,11 @@ const RecruiterAssessment = require("../models/recruiterAssessmentModel");
 const AssessmentAttempt = require("../models/assessmentAttemptModel");
 const User = require("../models/userModel");
 const ConnectionRequest = require("../models/connectionRequestModel");
-const fs = require("fs");
-const path = require("path");
+const {
+  uploadFileToCloudinary,
+  deleteFromCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 // Convert "60 min"/"90" style values into a clean minute number.
 const parseMinutes = (value) => {
@@ -127,24 +130,49 @@ const normalizeAnswerPayload = (raw = {}) => ({
 
 // Remove previous uploaded file if we replaced it with a new one.
 const removeUploadedFileIfExists = (url) => {
-  if (!url || typeof url !== "string" || !url.startsWith("/uploads/")) return;
-  const relativePath = url.replace(/^\/uploads\//, "");
-  const absolutePath = path.join(__dirname, "..", "public", "uploads", relativePath);
-  if (fs.existsSync(absolutePath)) {
-    try {
-      fs.unlinkSync(absolutePath);
-    } catch (_error) {
-      // Do not fail request on cleanup error
+  if (!url || typeof url !== "string") return;
+  if (url.startsWith("/uploads/")) {
+    const fs = require("fs");
+    const path = require("path");
+    const relativePath = url.replace(/^\/uploads\//, "");
+    const absolutePath = path.join(__dirname, "..", "public", "uploads", relativePath);
+    if (fs.existsSync(absolutePath)) {
+      try {
+        fs.unlinkSync(absolutePath);
+      } catch (_error) {}
     }
+    return;
   }
+
+  const publicId = extractPublicIdFromCloudinaryUrl(url);
+  if (!publicId) return;
+  deleteFromCloudinary(publicId, { resource_type: "raw" }).catch(() => null);
 };
 
 // Convert uploaded code file metadata into the shape stored in answers.
-const mapUploadedCodeFile = (file) => {
-  if (!file?.filename) return null;
+const mapUploadedCodeFile = async (file) => {
+  if (!file?.path) return null;
+
+  const fs = require("fs");
+  let uploaded;
+  try {
+    uploaded = await uploadFileToCloudinary(file.path, {
+      folder: "hirelink/assessment-submissions",
+      resource_type: "raw",
+      use_filename: true,
+      unique_filename: true,
+    });
+  } finally {
+    try {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    } catch (_error) {}
+  }
+
   return {
-    codeFileUrl: `/uploads/assessment-submissions/${file.filename}`,
-    codeFileName: file.originalname || file.filename,
+    codeFileUrl: uploaded.secure_url,
+    codeFilePublicId:
+      uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url),
+    codeFileName: file.originalname || "",
     codeFileMimeType: file.mimetype || "",
     codeFileSize: typeof file.size === "number" ? file.size : 0,
   };
@@ -387,7 +415,7 @@ const saveAnswers = async (req, res) => {
     }
 
     const normalizedBody = normalizeAnswerPayload(req.body || {});
-    const uploadedCodeFile = mapUploadedCodeFile(req.file);
+    const uploadedCodeFile = await mapUploadedCodeFile(req.file);
     const previousFileUrl = attempt.answers?.codeFileUrl || "";
 
     attempt.answers = {
@@ -437,7 +465,7 @@ const submitAttempt = async (req, res) => {
     }
 
     const normalizedBody = normalizeAnswerPayload(req.body || {});
-    const uploadedCodeFile = mapUploadedCodeFile(req.file);
+    const uploadedCodeFile = await mapUploadedCodeFile(req.file);
     const previousFileUrl = attempt.answers?.codeFileUrl || "";
 
     attempt.answers = {

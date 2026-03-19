@@ -4,11 +4,15 @@ const User = require("../models/userModel");
 const path = require("path");
 const fs = require("fs");
 const { NotFoundError, ValidationError } = require("../utils/AppError");
+const {
+  deleteFromCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 class ResumeService {
   // Upload resume for a user
   async uploadResume(userId, fileData) {
-    const { file, tempPath, targetPath, resumeUrl } = fileData;
+    const { file, resumeUrl, resumePublicId } = fileData;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -20,25 +24,27 @@ class ResumeService {
       throw new ValidationError("Only candidates can upload resumes");
     }
 
-    // Delete old resume if it exists
+    // Delete old resume in cloudinary if it exists
     if (user.resume && user.resume !== "") {
-      const oldResumePath = path.join(
-        __dirname,
-        "..",
-        "public",
-        user.resume
-      );
-      if (fs.existsSync(oldResumePath) && oldResumePath !== targetPath) {
-        try {
-          fs.unlinkSync(oldResumePath);
-        } catch (error) {
-          console.error("Error deleting old resume:", error);
+      try {
+        if (user.resume.startsWith("/uploads/")) {
+          const localPath = path.join(__dirname, "..", "public", user.resume);
+          if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+        } else {
+          const oldPublicId =
+            user.resumePublicId || extractPublicIdFromCloudinaryUrl(user.resume);
+          if (oldPublicId) {
+            await deleteFromCloudinary(oldPublicId, { resource_type: "raw" });
+          }
         }
+      } catch (error) {
+        console.error("Error deleting old resume from cloudinary:", error);
       }
     }
 
     // Update user with new resume
     user.resume = resumeUrl;
+    user.resumePublicId = resumePublicId || "";
     user.resumeFileName = file.originalname;
     user.resumeFileSize = file.size;
     await user.save();
@@ -58,20 +64,27 @@ class ResumeService {
       throw new NotFoundError("User");
     }
 
-    // Delete the resume file from server if it exists
+    // Delete the resume file from cloudinary if it exists
     if (user.resume && user.resume !== "") {
-      const resumePath = path.join(__dirname, "..", "public", user.resume);
-      if (fs.existsSync(resumePath)) {
-        try {
-          fs.unlinkSync(resumePath);
-        } catch (error) {
-          console.error("Error deleting resume file:", error);
+      try {
+        if (user.resume.startsWith("/uploads/")) {
+          const localPath = path.join(__dirname, "..", "public", user.resume);
+          if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+        } else {
+          const publicId =
+            user.resumePublicId || extractPublicIdFromCloudinaryUrl(user.resume);
+          if (publicId) {
+            await deleteFromCloudinary(publicId, { resource_type: "raw" });
+          }
         }
+      } catch (error) {
+        console.error("Error deleting resume file from cloudinary:", error);
       }
     }
 
     // Clear resume fields
     user.resume = "";
+    user.resumePublicId = "";
     user.resumeFileName = "";
     user.resumeFileSize = 0;
     await user.save();

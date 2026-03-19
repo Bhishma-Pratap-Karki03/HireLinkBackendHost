@@ -4,13 +4,17 @@ const User = require("../models/userModel");
 const path = require("path");
 const fs = require("fs");
 const { NotFoundError, ValidationError } = require("../utils/AppError");
+const {
+  deleteFromCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 const MAX_WORKSPACE_IMAGES = 6;
 
 class WorkspaceService {
   // Upload workspace image
   async uploadWorkspaceImage(userId, fileData) {
-    const { file, tempPath, targetPath, imageUrl } = fileData;
+    const { file, imageUrl, imagePublicId } = fileData;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -30,6 +34,7 @@ class WorkspaceService {
     // Create workspace image object
     const workspaceImage = {
       imageUrl,
+      imagePublicId: imagePublicId || "",
       fileName: file.originalname,
       fileSize: file.size,
       uploadedAt: new Date(),
@@ -80,20 +85,21 @@ class WorkspaceService {
 
     const imageToDelete = user.workspaceImages[imageIndex];
 
-    // Delete the file from server
-    const imagePath = path.join(
-      __dirname,
-      "..",
-      "public",
-      imageToDelete.imageUrl
-    );
-
-    if (fs.existsSync(imagePath)) {
-      try {
-        fs.unlinkSync(imagePath);
-      } catch (error) {
-        console.error("Error deleting workspace image file:", error);
+    // Delete from cloudinary
+    try {
+      if (String(imageToDelete.imageUrl || "").startsWith("/uploads/")) {
+        const localPath = path.join(__dirname, "..", "public", imageToDelete.imageUrl);
+        if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+      } else {
+        const publicId =
+          imageToDelete.imagePublicId ||
+          extractPublicIdFromCloudinaryUrl(imageToDelete.imageUrl);
+        if (publicId) {
+          await deleteFromCloudinary(publicId, { resource_type: "image" });
+        }
       }
+    } catch (error) {
+      console.error("Error deleting workspace image from cloudinary:", error);
     }
 
     // Remove from array

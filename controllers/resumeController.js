@@ -2,8 +2,11 @@
 // Uses Resume Service for business logic
 
 const resumeService = require("../services/resumeService");
-const path = require("path");
 const fs = require("fs");
+const {
+  uploadFileToCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 // Upload resume
 exports.uploadResume = async (req, res, next) => {
@@ -18,11 +21,9 @@ exports.uploadResume = async (req, res, next) => {
       });
     }
 
-    // Find user to determine role-based folder
     const User = require("../models/userModel");
     const user = await User.findById(req.user.id);
     if (!user) {
-      // Clean up temp file
       if (req.file.path && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
@@ -33,27 +34,7 @@ exports.uploadResume = async (req, res, next) => {
       });
     }
 
-    // Create role-based folder path
-    const roleFolder = "CandidateResumes";
-    const targetDir = path.join(
-      __dirname,
-      "..",
-      "public",
-      "uploads",
-      "resumes",
-      roleFolder
-    );
-
-    // Create role folder if it doesn't exist
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-
-    // Move file from temp to role folder
-    const tempPath = req.file.path;
-    const targetPath = path.join(targetDir, req.file.filename);
-
-    if (!fs.existsSync(tempPath)) {
+    if (!fs.existsSync(req.file.path)) {
       return res.status(500).json({
         success: false,
         message: "Uploaded file not found",
@@ -61,19 +42,24 @@ exports.uploadResume = async (req, res, next) => {
       });
     }
 
-    // Move the file
-    fs.renameSync(tempPath, targetPath);
+    const uploaded = await uploadFileToCloudinary(req.file.path, {
+      folder: "hirelink/resumes/candidates",
+      resource_type: "auto",
+      use_filename: true,
+      unique_filename: true,
+    });
+
     tempFileCleaned = true;
+    fs.unlinkSync(req.file.path);
 
-    // Create relative URL
-    const resumeUrl = `/uploads/resumes/${roleFolder}/${req.file.filename}`;
+    const resumeUrl = uploaded.secure_url;
+    const resumePublicId =
+      uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
 
-    // Prepare file data for service
     const fileData = {
       file: req.file,
-      tempPath,
-      targetPath,
       resumeUrl,
+      resumePublicId,
     };
 
     // Call service to handle business logic

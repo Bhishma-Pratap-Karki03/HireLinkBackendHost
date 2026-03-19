@@ -8,6 +8,11 @@ const User = require("../models/userModel"); // Mongo model: stores users and ro
 const AtsReport = require("../models/atsReportModel"); // Mongo model: stores ATS extracted info and scores for an application
 const Notification = require("../models/notificationModel");
 const { getIO } = require("../socket");
+const {
+  uploadFileToCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
+const { resolveStoredFileForParsing } = require("../utils/mediaFileUtils");
 
 const AssessmentAttempt = require("../models/assessmentAttemptModel"); // Mongo model: candidate's assessment attempt (answers, score, submittedAt)
 const AdminAssessment = require("../models/adminAssessmentModel"); // Mongo model: assessments created by admin
@@ -83,20 +88,6 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
-    // Directory where applied resumes are stored permanently
-    const targetDir = path.join(
-      __dirname,
-      "..",
-      "public",
-      "uploads",
-      "appliedresume",
-    );
-
-    // Create the directory if it does not exist
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-
     // Candidate name used in filename (safe slug)
     const candidateName = sanitize(user.fullName || user.email || "candidate");
 
@@ -105,17 +96,12 @@ exports.applyToJob = async (req, res) => {
 
     // These values will be stored into the application document
     let finalResumeUrl = ""; // public URL path
+    let finalResumePublicId = "";
     let finalFileName = ""; // original name
     let finalFileSize = 0; // size in bytes
 
     // Case 1: Resume is uploaded with the request (multer puts it in req.file)
     if (req.file) {
-      const ext = path.extname(req.file.originalname) || ".pdf"; // keep original extension if possible
-      const baseName =
-        sanitize(path.basename(req.file.originalname, ext)) || "resume"; // base name without extension
-      const finalName = `${candidateName}-${timestamp}-${baseName}${ext}`; // unique filename
-      const targetPath = path.join(targetDir, finalName); // destination path
-
       // Confirm multer temp file exists
       if (!fs.existsSync(req.file.path)) {
         return res.status(500).json({
@@ -124,37 +110,91 @@ exports.applyToJob = async (req, res) => {
         });
       }
 
-      // Move temp file -> permanent uploads folder
-      fs.renameSync(req.file.path, targetPath);
+      const uploaded = await uploadFileToCloudinary(req.file.path, {
+        folder: "hirelink/applied-resumes",
+        resource_type: "raw",
+        use_filename: true,
+        unique_filename: true,
+      });
+
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+
       tempFileCleaned = true; // moved successfully
 
       // Store final public url and metadata
-      finalResumeUrl = `/uploads/appliedresume/${finalName}`;
+      finalResumeUrl = uploaded.secure_url;
+      finalResumePublicId =
+        uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
       finalFileName = req.file.originalname;
       finalFileSize = req.file.size;
 
       // Case 2: Resume is referenced from the user's profile (resumeUrl)
     } else if (resumeUrl) {
-      const resumePath = path.join(__dirname, "..", "public", resumeUrl); // actual file path
-      if (!fs.existsSync(resumePath)) {
-        return res.status(400).json({
-          success: false,
-          message: "Profile resume not found. Please upload a resume.",
+      const isRemoteResume = /^https?:\/\//i.test(resumeUrl);
+      if (isRemoteResume) {
+        const isCloudinarySource = resumeUrl.includes("res.cloudinary.com");
+        if (isCloudinarySource) {
+          finalResumeUrl = resumeUrl;
+          finalResumePublicId = extractPublicIdFromCloudinaryUrl(resumeUrl);
+          const urlPath = new URL(resumeUrl).pathname || "";
+          finalFileName = path.basename(urlPath) || `resume-${timestamp}.pdf`;
+          finalFileSize = Number(user.resumeFileSize) || 0;
+        } else {
+          const { filePath: downloadedPath, cleanup } =
+            await resolveStoredFileForParsing(resumeUrl);
+          if (!downloadedPath || !fs.existsSync(downloadedPath)) {
+            return res.status(400).json({
+              success: false,
+              message: "Profile resume not found. Please upload a resume.",
+            });
+          }
+
+          let uploaded;
+          try {
+            uploaded = await uploadFileToCloudinary(downloadedPath, {
+              folder: "hirelink/applied-resumes",
+              resource_type: "raw",
+              use_filename: true,
+              unique_filename: true,
+            });
+          } finally {
+            if (typeof cleanup === "function") cleanup();
+          }
+
+          finalResumeUrl = uploaded.secure_url;
+          finalResumePublicId =
+            uploaded.public_id ||
+            extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
+          const urlPath = new URL(resumeUrl).pathname || "";
+          finalFileName = path.basename(urlPath) || `resume-${timestamp}.pdf`;
+          finalFileSize = Number(user.resumeFileSize) || 0;
+        }
+      } else {
+        const resumePath = path.join(__dirname, "..", "public", resumeUrl);
+        if (!fs.existsSync(resumePath)) {
+          return res.status(400).json({
+            success: false,
+            message: "Profile resume not found. Please upload a resume.",
+          });
+        }
+
+        const uploaded = await uploadFileToCloudinary(resumePath, {
+          folder: "hirelink/applied-resumes",
+          resource_type: "raw",
+          use_filename: true,
+          unique_filename: true,
         });
+
+        finalResumeUrl = uploaded.secure_url;
+        finalResumePublicId =
+          uploaded.public_id ||
+          extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
+        finalFileName =
+          user.resumeFileName || path.basename(resumePath) || `resume-${timestamp}.pdf`;
+        finalFileSize = Number(user.resumeFileSize) || fs.statSync(resumePath).size;
       }
-
-      const ext = path.extname(resumePath) || ".pdf";
-      const baseName = sanitize(path.basename(resumePath, ext)) || "resume";
-      const finalName = `${candidateName}-${timestamp}-${baseName}${ext}`;
-      const targetPath = path.join(targetDir, finalName);
-
-      // Copy the profile resume into appliedresume so each application has its own resume copy
-      fs.copyFileSync(resumePath, targetPath);
-
-      // Store final public url and metadata
-      finalResumeUrl = `/uploads/appliedresume/${finalName}`;
-      finalFileName = path.basename(resumePath);
-      finalFileSize = fs.statSync(resumePath).size;
 
       // No file and no resumeUrl -> can't apply
     } else {
@@ -171,6 +211,7 @@ exports.applyToJob = async (req, res) => {
       jobTitle: job.jobTitle || "Untitled Role", // store job title at apply time
       companyName: job.companyName || job.department || "Company", // store company name at apply time
       resumeUrl: finalResumeUrl, // saved resume location
+      resumePublicId: finalResumePublicId,
       resumeFileName: finalFileName, // original name / copied file name
       resumeFileSize: finalFileSize, // size
       message: message || "", // candidate message (optional)
@@ -178,16 +219,14 @@ exports.applyToJob = async (req, res) => {
 
     // ATS pre-extract section
     // This runs in a nested try so application still succeeds even if ATS fails
+    let cleanup = null;
     try {
-      const resumePath = path.join(
-        __dirname,
-        "..",
-        "public",
-        finalResumeUrl || "",
-      );
+      const { filePath: resumePath, cleanup: cleanupFn } =
+        await resolveStoredFileForParsing(finalResumeUrl || "");
+      cleanup = cleanupFn;
 
       // If resume file exists, parse and extract basic ATS data
-      if (fs.existsSync(resumePath)) {
+      if (resumePath && fs.existsSync(resumePath)) {
         const resumeText = normalize(await parseResumeText(resumePath)); // parse resume -> text -> normalize
 
         // Extract skills and canonicalize them
@@ -223,9 +262,16 @@ exports.applyToJob = async (req, res) => {
           atsReport: report._id,
         });
       }
+
     } catch (atsError) {
       // ATS extraction failure should not break job application
       console.error("ATS pre-extract error:", atsError);
+    } finally {
+      try {
+        if (typeof cleanup === "function") {
+          cleanup();
+        }
+      } catch (_cleanupError) {}
     }
 
     // Return success response

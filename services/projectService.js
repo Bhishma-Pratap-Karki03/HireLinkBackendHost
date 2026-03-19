@@ -4,6 +4,10 @@ const User = require("../models/userModel");
 const path = require("path");
 const fs = require("fs");
 const { NotFoundError, ValidationError } = require("../utils/AppError");
+const {
+  deleteFromCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 class ProjectService {
   // Add project to user profile
@@ -79,8 +83,9 @@ class ProjectService {
 
     // Handle cover image if uploaded
     if (fileData) {
-      const { coverImageUrl, fileName, fileSize } = fileData;
+      const { coverImageUrl, coverImagePublicId, fileName, fileSize } = fileData;
       newProject.coverImage = coverImageUrl;
+      newProject.coverImagePublicId = coverImagePublicId || "";
       newProject.coverImageFileName = fileName;
       newProject.coverImageFileSize = fileSize;
     }
@@ -183,25 +188,28 @@ class ProjectService {
 
     // Handle cover image update if new file is uploaded
     if (fileData) {
-      // Delete old cover image if it exists
+      // Delete old cover image from cloudinary if it exists
       if (project.coverImage && project.coverImage !== "") {
-        const oldImagePath = path.join(
-          __dirname,
-          "..",
-          "public",
-          project.coverImage
-        );
-        if (fs.existsSync(oldImagePath)) {
-          try {
-            fs.unlinkSync(oldImagePath);
-          } catch (error) {
-            console.error("Error deleting old project cover image:", error);
+        try {
+          if (project.coverImage.startsWith("/uploads/")) {
+            const localPath = path.join(__dirname, "..", "public", project.coverImage);
+            if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+          } else {
+            const oldPublicId =
+              project.coverImagePublicId ||
+              extractPublicIdFromCloudinaryUrl(project.coverImage);
+            if (oldPublicId) {
+              await deleteFromCloudinary(oldPublicId, { resource_type: "image" });
+            }
           }
+        } catch (error) {
+          console.error("Error deleting old project cover image:", error);
         }
       }
 
-      const { coverImageUrl, fileName, fileSize } = fileData;
+      const { coverImageUrl, coverImagePublicId, fileName, fileSize } = fileData;
       project.coverImage = coverImageUrl;
+      project.coverImagePublicId = coverImagePublicId || "";
       project.coverImageFileName = fileName;
       project.coverImageFileSize = fileSize;
     }
@@ -228,20 +236,22 @@ class ProjectService {
       throw new NotFoundError("Project");
     }
 
-    // Delete the cover image file if it exists
+    // Delete the cover image from cloudinary if it exists
     if (project.coverImage && project.coverImage !== "") {
-      const imagePath = path.join(
-        __dirname,
-        "..",
-        "public",
-        project.coverImage
-      );
-      if (fs.existsSync(imagePath)) {
-        try {
-          fs.unlinkSync(imagePath);
-        } catch (error) {
-          console.error("Error deleting project cover image:", error);
+      try {
+        if (project.coverImage.startsWith("/uploads/")) {
+          const localPath = path.join(__dirname, "..", "public", project.coverImage);
+          if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+        } else {
+          const publicId =
+            project.coverImagePublicId ||
+            extractPublicIdFromCloudinaryUrl(project.coverImage);
+          if (publicId) {
+            await deleteFromCloudinary(publicId, { resource_type: "image" });
+          }
         }
+      } catch (error) {
+        console.error("Error deleting project cover image:", error);
       }
     }
 

@@ -2,8 +2,11 @@
 // Uses Workspace Service for business logic
 
 const workspaceService = require("../services/workspaceService");
-const path = require("path");
 const fs = require("fs");
+const {
+  uploadFileToCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 // Upload workspace image
 exports.uploadWorkspaceImage = async (req, res, next) => {
@@ -18,24 +21,7 @@ exports.uploadWorkspaceImage = async (req, res, next) => {
       });
     }
 
-    // Create workspace images directory if it doesn't exist
-    const workspaceDir = path.join(
-      __dirname,
-      "..",
-      "public",
-      "uploads",
-      "workspaceimages"
-    );
-
-    if (!fs.existsSync(workspaceDir)) {
-      fs.mkdirSync(workspaceDir, { recursive: true });
-    }
-
-    // Move file from temp to workspace directory
-    const tempPath = req.file.path;
-    const targetPath = path.join(workspaceDir, req.file.filename);
-
-    if (!fs.existsSync(tempPath)) {
+    if (!fs.existsSync(req.file.path)) {
       return res.status(500).json({
         success: false,
         message: "Uploaded file not found",
@@ -43,19 +29,24 @@ exports.uploadWorkspaceImage = async (req, res, next) => {
       });
     }
 
-    // Move the file
-    fs.renameSync(tempPath, targetPath);
+    const uploaded = await uploadFileToCloudinary(req.file.path, {
+      folder: "hirelink/workspace-images",
+      resource_type: "image",
+      use_filename: true,
+      unique_filename: true,
+    });
+
     tempFileCleaned = true;
+    fs.unlinkSync(req.file.path);
 
-    // Create relative URL
-    const imageUrl = `/uploads/workspaceimages/${req.file.filename}`;
+    const imageUrl = uploaded.secure_url;
+    const imagePublicId =
+      uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
 
-    // Prepare file data for service
     const fileData = {
       file: req.file,
-      tempPath,
-      targetPath,
       imageUrl,
+      imagePublicId,
     };
 
     // Call service to handle business logic

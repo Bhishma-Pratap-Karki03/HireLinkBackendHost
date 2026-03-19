@@ -7,6 +7,10 @@ const workspaceImageSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  imagePublicId: {
+    type: String,
+    default: "",
+  },
   fileName: {
     type: String,
     required: true,
@@ -285,6 +289,10 @@ const projectSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  coverImagePublicId: {
+    type: String,
+    default: "",
+  },
   coverImageFileName: {
     type: String,
     default: "",
@@ -442,6 +450,10 @@ const userSchema = new mongoose.Schema(
     },
     // Resume and social links.
     resume: {
+      type: String,
+      default: "",
+    },
+    resumePublicId: {
       type: String,
       default: "",
     },

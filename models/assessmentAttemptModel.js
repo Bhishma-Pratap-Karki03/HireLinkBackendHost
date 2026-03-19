@@ -40,6 +40,7 @@ const assessmentAttemptSchema = new mongoose.Schema(
       codeResponse: { type: String, default: "" },
       codeLink: { type: String, default: "" },
       codeFileUrl: { type: String, default: "" },
+      codeFilePublicId: { type: String, default: "" },
       codeFileName: { type: String, default: "" },
       codeFileMimeType: { type: String, default: "" },
       codeFileSize: { type: Number, default: 0 },

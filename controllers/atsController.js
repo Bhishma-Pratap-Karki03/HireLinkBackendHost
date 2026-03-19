@@ -15,6 +15,7 @@ const {
   canonicalizeSkill,
   normalize,
 } = require("../utils/atsParser"); // Resume parsing utilities
+const { resolveStoredFileForParsing } = require("../utils/mediaFileUtils");
 
 // Extract minimum required experience (number) from job experience text
 const parseMinExperience = (experienceText) => {
@@ -208,19 +209,18 @@ exports.scanJobApplications = async (req, res) => {
 
     // Loop through each application
     for (const application of applications) {
-      const resumePath = path.join(
-        __dirname,
-        "..",
-        "public",
-        application.resumeUrl || "",
-      );
-
-      if (!fs.existsSync(resumePath)) {
-        skipped += 1;
-        continue; // Skip if resume file not found
-      }
+      let cleanup = null;
 
       try {
+        const resolved = await resolveStoredFileForParsing(application.resumeUrl || "");
+        const resumePath = resolved.filePath || "";
+        cleanup = resolved.cleanup;
+
+        if (!resumePath || !fs.existsSync(resumePath)) {
+          skipped += 1;
+          continue;
+        }
+
         processed += 1;
         let report = await AtsReport.findOne({ application: application._id });
 
@@ -310,6 +310,10 @@ exports.scanJobApplications = async (req, res) => {
         successful += 1;
       } catch (scanItemError) {
         failed += 1;
+      } finally {
+        try {
+          if (typeof cleanup === "function") cleanup();
+        } catch (_cleanupError) {}
       }
     }
 

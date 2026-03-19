@@ -2,8 +2,11 @@
 // Uses Project Service for business logic
 
 const projectService = require("../services/projectService");
-const path = require("path");
 const fs = require("fs");
+const {
+  uploadFileToCloudinary,
+  extractPublicIdFromCloudinaryUrl,
+} = require("../utils/cloudinary");
 
 // Add project to user profile
 exports.addProject = async (req, res, next) => {
@@ -35,27 +38,7 @@ exports.addProject = async (req, res, next) => {
 
     // Handle cover image if uploaded
     if (req.file) {
-      // Move file from temp to project images folder
-      const roleFolder = "CandidateProjects";
-      const targetDir = path.join(
-        __dirname,
-        "..",
-        "public",
-        "uploads",
-        "projects",
-        roleFolder
-      );
-
-      // Create role folder if it doesn't exist
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
-
-      // Move file from temp to role folder
-      const tempPath = req.file.path;
-      const targetPath = path.join(targetDir, req.file.filename);
-
-      if (!fs.existsSync(tempPath)) {
+      if (!fs.existsSync(req.file.path)) {
         return res.status(500).json({
           success: false,
           message: "Uploaded file not found",
@@ -63,15 +46,23 @@ exports.addProject = async (req, res, next) => {
         });
       }
 
-      // Move the file
-      fs.renameSync(tempPath, targetPath);
-      tempFileCleaned = true;
+      const uploaded = await uploadFileToCloudinary(req.file.path, {
+        folder: "hirelink/projects/candidate-covers",
+        resource_type: "image",
+        use_filename: true,
+        unique_filename: true,
+      });
 
-      // Create relative URL
-      const coverImageUrl = `/uploads/projects/${roleFolder}/${req.file.filename}`;
+      tempFileCleaned = true;
+      fs.unlinkSync(req.file.path);
+
+      const coverImageUrl = uploaded.secure_url;
+      const coverImagePublicId =
+        uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
 
       fileData = {
         coverImageUrl,
+        coverImagePublicId,
         fileName: req.file.originalname,
         fileSize: req.file.size,
       };
@@ -134,27 +125,7 @@ exports.updateProject = async (req, res, next) => {
 
     // Handle cover image update if new file is uploaded
     if (req.file) {
-      // Move new file from temp to project images folder
-      const roleFolder = "CandidateProjects";
-      const targetDir = path.join(
-        __dirname,
-        "..",
-        "public",
-        "uploads",
-        "projects",
-        roleFolder
-      );
-
-      // Create role folder if it doesn't exist
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
-
-      // Move file from temp to role folder
-      const tempPath = req.file.path;
-      const targetPath = path.join(targetDir, req.file.filename);
-
-      if (!fs.existsSync(tempPath)) {
+      if (!fs.existsSync(req.file.path)) {
         return res.status(500).json({
           success: false,
           message: "Uploaded file not found",
@@ -162,15 +133,23 @@ exports.updateProject = async (req, res, next) => {
         });
       }
 
-      // Move the file
-      fs.renameSync(tempPath, targetPath);
-      tempFileCleaned = true;
+      const uploaded = await uploadFileToCloudinary(req.file.path, {
+        folder: "hirelink/projects/candidate-covers",
+        resource_type: "image",
+        use_filename: true,
+        unique_filename: true,
+      });
 
-      // Create relative URL
-      const coverImageUrl = `/uploads/projects/${roleFolder}/${req.file.filename}`;
+      tempFileCleaned = true;
+      fs.unlinkSync(req.file.path);
+
+      const coverImageUrl = uploaded.secure_url;
+      const coverImagePublicId =
+        uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
 
       fileData = {
         coverImageUrl,
+        coverImagePublicId,
         fileName: req.file.originalname,
         fileSize: req.file.size,
       };
