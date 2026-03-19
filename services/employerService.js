@@ -5,6 +5,20 @@ const User = require("../models/userModel");
 const JobPost = require("../models/jobPostModel");
 const ConnectionRequest = require("../models/connectionRequestModel");
 
+const PUBLIC_BACKEND_URL = (
+  process.env.BACKEND_PUBLIC_URL ||
+  process.env.BASE_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  ""
+).replace(/\/$/, "");
+
+const resolveAssetUrl = (value) => {
+  if (!value) return "";
+  if (String(value).startsWith("http")) return value;
+  const normalizedPath = String(value).startsWith("/") ? value : `/${value}`;
+  return PUBLIC_BACKEND_URL ? `${PUBLIC_BACKEND_URL}${normalizedPath}` : normalizedPath;
+};
+
 class EmployerService {
   // Get all recruiters for public employers page
   async getAllRecruiters() {
@@ -53,34 +67,14 @@ class EmployerService {
     // Format the recruiter data for public view
     const formattedRecruiters = recruiters.map((recruiter) => {
       // Get full profile picture URL
-      let profilePictureUrl = "";
-      if (recruiter.profilePicture && recruiter.profilePicture !== "") {
-        // Check if the URL already has the full path
-        if (recruiter.profilePicture.startsWith("http")) {
-          profilePictureUrl = recruiter.profilePicture;
-        } else {
-          // Add the base URL for local images
-          profilePictureUrl = `${
-            process.env.BASE_URL || "http://localhost:5000"
-          }${recruiter.profilePicture}`;
-        }
-      }
+      const profilePictureUrl = resolveAssetUrl(recruiter.profilePicture);
 
       // Get workspace images URLs
       const workspaceImages = (recruiter.workspaceImages || [])
         .map((image) => {
-          if (image.imageUrl && image.imageUrl !== "") {
-            if (image.imageUrl.startsWith("http")) {
-              return image.imageUrl;
-            } else {
-              return `${process.env.BASE_URL || "http://localhost:5000"}${
-                image.imageUrl
-              }`;
-            }
-          }
-          return null;
+          return resolveAssetUrl(image.imageUrl);
         })
-        .filter((url) => url !== null);
+        .filter((url) => Boolean(url));
 
       // Format address for display
       let displayAddress = "No location provided";
@@ -163,33 +157,15 @@ class EmployerService {
     }
 
     // Get full profile picture URL
-    let profilePictureUrl = "";
-    if (recruiter.profilePicture && recruiter.profilePicture !== "") {
-      if (recruiter.profilePicture.startsWith("http")) {
-        profilePictureUrl = recruiter.profilePicture;
-      } else {
-        profilePictureUrl = `${
-          process.env.BASE_URL || "http://localhost:5000"
-        }${recruiter.profilePicture}`;
-      }
-    }
+    const profilePictureUrl = resolveAssetUrl(recruiter.profilePicture);
 
     // Get workspace images URLs
     const workspaceImages = (recruiter.workspaceImages || [])
       .sort((a, b) => a.order - b.order) // Sort by order
       .map((image) => {
-        if (image.imageUrl && image.imageUrl !== "") {
-          if (image.imageUrl.startsWith("http")) {
-            return image.imageUrl;
-          } else {
-            return `${process.env.BASE_URL || "http://localhost:5000"}${
-              image.imageUrl
-            }`;
-          }
-        }
-        return null;
+        return resolveAssetUrl(image.imageUrl);
       })
-      .filter((url) => url !== null);
+      .filter((url) => Boolean(url));
 
     // Format the recruiter data for detailed view
     const formattedRecruiter = {
