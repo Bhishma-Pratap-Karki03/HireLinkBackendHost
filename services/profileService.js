@@ -2,7 +2,10 @@ const User = require("../models/userModel");
 const ConnectionRequest = require("../models/connectionRequestModel");
 const path = require("path");
 const fs = require("fs");
-const { deleteFromCloudinary } = require("../utils/cloudinary");
+const {
+  deleteFromCloudinary,
+  normalizeCloudinaryDocumentUrl,
+} = require("../utils/cloudinary");
 
 class ProfileService {
   // Get current user's profile information
@@ -28,7 +31,7 @@ class ProfileService {
         currentJobTitle: user.currentJobTitle || "",
         profilePicture: user.profilePicture || "",
         profileVisibility: user.profileVisibility || "public",
-        resume: user.resume || "",
+        resume: normalizeCloudinaryDocumentUrl(user.resume || ""),
         resumeFileName: user.resumeFileName || "",
         resumeFileSize: user.resumeFileSize || 0,
         connectionsCount: user.connectionsCount || 0,
@@ -279,7 +282,7 @@ class ProfileService {
       profileVisibility: user.profileVisibility || "public",
       about: user.about || "",
       address: user.address || "",
-      resume: user.resume || "",
+      resume: normalizeCloudinaryDocumentUrl(user.resume || ""),
       resumeFileName: user.resumeFileName || "",
       resumeFileSize: user.resumeFileSize || 0,
       skills: user.skills || [],

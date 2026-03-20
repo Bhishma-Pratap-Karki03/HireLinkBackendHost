@@ -6,6 +6,7 @@ const fs = require("fs");
 const {
   uploadFileToCloudinary,
   extractPublicIdFromCloudinaryUrl,
+  normalizeCloudinaryDocumentUrl,
 } = require("../utils/cloudinary");
 
 // Upload resume
@@ -44,7 +45,7 @@ exports.uploadResume = async (req, res, next) => {
 
     const uploaded = await uploadFileToCloudinary(req.file.path, {
       folder: "hirelink/resumes/candidates",
-      resource_type: "auto",
+      resource_type: "raw",
       use_filename: true,
       unique_filename: true,
     });
@@ -52,7 +53,7 @@ exports.uploadResume = async (req, res, next) => {
     tempFileCleaned = true;
     fs.unlinkSync(req.file.path);
 
-    const resumeUrl = uploaded.secure_url;
+    const resumeUrl = normalizeCloudinaryDocumentUrl(uploaded.secure_url);
     const resumePublicId =
       uploaded.public_id || extractPublicIdFromCloudinaryUrl(uploaded.secure_url);
 

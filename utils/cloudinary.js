@@ -46,9 +46,21 @@ const extractPublicIdFromCloudinaryUrl = (url = "") => {
   }
 };
 
+const normalizeCloudinaryDocumentUrl = (url = "") => {
+  if (!url || typeof url !== "string" || !url.includes("res.cloudinary.com")) {
+    return url || "";
+  }
+
+  const isDocument = /\.(pdf|doc|docx|zip)$/i.test(url);
+  if (!isDocument) return url;
+
+  return url.replace("/image/upload/", "/raw/upload/");
+};
+
 module.exports = {
   cloudinary,
   uploadFileToCloudinary,
   deleteFromCloudinary,
   extractPublicIdFromCloudinaryUrl,
+  normalizeCloudinaryDocumentUrl,
 };
