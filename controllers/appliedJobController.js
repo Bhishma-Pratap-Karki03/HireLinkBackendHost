@@ -367,9 +367,12 @@ exports.getApplicationsByJob = async (req, res) => {
       .populate({
         path: "candidate",
         select: "fullName email profilePicture currentJobTitle",
+        match: { isBlocked: { $ne: true } },
       })
       .sort({ createdAt: -1 })
       .lean();
+
+    const visibleApplications = applications.filter((app) => Boolean(app?.candidate));
 
     // Will store assessment metadata if job has an assessment attached
     let assessmentDetails = null;
@@ -402,7 +405,7 @@ exports.getApplicationsByJob = async (req, res) => {
         };
 
         // Collect candidate IDs from applications list
-        const candidateIds = applications
+        const candidateIds = visibleApplications
           .map((app) => app?.candidate?._id)
           .filter(Boolean);
 
@@ -429,7 +432,7 @@ exports.getApplicationsByJob = async (req, res) => {
     }
 
     // Format each application response with assessment status info
-    const formatted = applications.map((app) => {
+    const formatted = visibleApplications.map((app) => {
       const candidateId = app?.candidate?._id?.toString();
       const attempt = candidateId
         ? latestAttemptsByCandidate.get(candidateId)
@@ -739,6 +742,16 @@ exports.getApplicationAssessmentById = async (req, res) => {
 
     // Must exist
     if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found",
+      });
+    }
+
+    const candidateDoc = await User.findById(application.candidate?._id || application.candidate)
+      .select("isBlocked")
+      .lean();
+    if (!candidateDoc || candidateDoc.isBlocked) {
       return res.status(404).json({
         success: false,
         message: "Application not found",

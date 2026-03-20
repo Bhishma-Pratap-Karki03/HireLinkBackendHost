@@ -224,6 +224,18 @@ class ProfileService {
       throw error;
     }
 
+    if (user.isBlocked) {
+      const viewer = viewerId
+        ? await User.findById(viewerId).select("role").lean()
+        : null;
+      const isAdminViewer = viewer?.role === "admin";
+      if (!isAdminViewer) {
+        const error = new Error("User not found");
+        error.statusCode = 404;
+        throw error;
+      }
+    }
+
     if (["candidate", "recruiter"].includes(user.role) && user.profileVisibility === "private") {
       if (!viewerId) {
         const roleLabel = user.role === "recruiter" ? "employer" : "candidate";

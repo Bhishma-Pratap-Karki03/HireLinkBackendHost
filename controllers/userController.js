@@ -142,7 +142,10 @@ exports.loginUser = async (req, res, next) => {
 // List candidates for recruiter view
 exports.listCandidates = async (req, res, next) => {
   try {
-    const candidates = await User.find({ role: "candidate" })
+    const candidates = await User.find({
+      role: "candidate",
+      isBlocked: { $ne: true },
+    })
       .select(
         "fullName email currentJobTitle address profilePicture skills experience"
       )

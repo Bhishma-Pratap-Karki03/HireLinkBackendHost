@@ -190,6 +190,11 @@ const listJobPosts = async (req, res) => {
           companyLogo: { $ifNull: ["$recruiter.profilePicture", ""] },
         },
       },
+      {
+        $match: {
+          "recruiter.isBlocked": { $ne: true },
+        },
+      },
     );
 
     if (search) {
@@ -254,6 +259,11 @@ const listJobPosts = async (req, res) => {
           companyName: { $ifNull: ["$recruiter.fullName", ""] },
         },
       },
+      {
+        $match: {
+          "recruiter.isBlocked": { $ne: true },
+        },
+      },
     );
 
     if (search) {
@@ -305,6 +315,25 @@ const getJobCategoriesSummary = async (req, res) => {
         $match: {
           isActive: true,
           status: "published",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "recruiterId",
+          foreignField: "_id",
+          as: "recruiter",
+        },
+      },
+      {
+        $unwind: {
+          path: "$recruiter",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $match: {
+          "recruiter.isBlocked": { $ne: true },
         },
       },
       {
@@ -420,6 +449,11 @@ const getCompanyVacancySummary = async (req, res) => {
         $unwind: {
           path: "$recruiter",
           preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $match: {
+          "recruiter.isBlocked": { $ne: true },
         },
       },
       {
@@ -568,6 +602,13 @@ const updateJobPost = async (req, res) => {
       });
     }
 
+    if (job.recruiterId?.isBlocked) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+      });
+    }
+
     if (job.recruiterId.toString() !== userId) {
       return res.status(403).json({
         success: false,
@@ -616,7 +657,7 @@ const getJobPostById = async (req, res) => {
     const job = await JobPost.findById(id)
       .populate(
         "recruiterId",
-        "fullName profilePicture email address companySize foundedYear websiteUrl about",
+        "fullName profilePicture email address companySize foundedYear websiteUrl about isBlocked",
       )
       .lean();
 
