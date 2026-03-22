@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
+// This is a mapping object coverts mime type into file extension.
 const MIME_TO_EXT = {
   "application/pdf": ".pdf",
   "application/msword": ".doc",
@@ -9,20 +10,25 @@ const MIME_TO_EXT = {
   "text/plain": ".txt",
 };
 
+// ensures a folder exists to save the resumes, it creates if not 
 const ensureDir = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
 };
 
+// it takes a file url, downloads the file, save it temporarily on our server, and reutrns the local path. 
 const downloadRemoteFileToTemp = async (url) => {
+  // this sends a request to the URL and downloads the response
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to download file: ${response.status}`);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  // Donwnloaded file data comes as raw binary data
+  const arrayBuffer = await response.arrayBuffer(); // reads the binary content
+  const buffer = Buffer.from(arrayBuffer);// converts it into Node.js buffer
+  // A buffer is the format node uses for binary file data
   const contentType = response.headers.get("content-type") || "";
 
   let ext = path.extname(new URL(url).pathname || "").toLowerCase();

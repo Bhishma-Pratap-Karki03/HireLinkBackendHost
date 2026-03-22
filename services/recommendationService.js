@@ -1,4 +1,3 @@
-// Core Node modules
 const fs = require("fs"); // Used to read/write temporary JSON files
 const path = require("path"); // Used to create safe file paths
 const { execFile } = require("child_process"); // Used to execute Python ML script
