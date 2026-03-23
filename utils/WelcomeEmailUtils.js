@@ -1,14 +1,23 @@
-const nodemailer = require("nodemailer");
+﻿const nodemailer = require("nodemailer");
 
 const createTransporter = () => {
+  const port = Number(process.env.EMAIL_PORT || 587);
+  const secure =
+    String(process.env.EMAIL_SECURE || "").toLowerCase() === "true" ||
+    port === 465;
+
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: false,
+    port,
+    secure,
+    requireTLS: !secure,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
+    connectionTimeout: 20000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
   });
 };
 
@@ -52,7 +61,7 @@ const sendWelcomeEmail = async (email, fullName, role) => {
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
           
           <p style="color: #666; font-size: 12px; text-align: center;">
-            © ${new Date().getFullYear()} ${appName}. All rights reserved.<br/>
+            Â© ${new Date().getFullYear()} ${appName}. All rights reserved.<br/>
             This is an automated welcome message.
           </p>
         </div>
@@ -69,3 +78,4 @@ const sendWelcomeEmail = async (email, fullName, role) => {
 };
 
 module.exports = { sendWelcomeEmail };
+
