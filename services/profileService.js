@@ -1,4 +1,4 @@
-const User = require("../models/userModel");
+﻿const User = require("../models/userModel");
 const ConnectionRequest = require("../models/connectionRequestModel");
 const path = require("path");
 const fs = require("fs");
@@ -222,6 +222,20 @@ class ProfileService {
       const error = new Error("User not found");
       error.statusCode = 404;
       throw error;
+    }
+
+
+    if (!user.isVerified) {
+      const viewer = viewerId
+        ? await User.findById(viewerId).select("role").lean()
+        : null;
+      const isAdminViewer = viewer?.role === "admin";
+      const isSelfViewer = viewerId && String(viewerId) === String(user._id);
+      if (!isAdminViewer && !isSelfViewer) {
+        const error = new Error("User not found");
+        error.statusCode = 404;
+        throw error;
+      }
     }
 
     if (user.isBlocked) {
@@ -1161,3 +1175,5 @@ class ProfileService {
 
 // Export a single instance of the ProfileService class
 module.exports = new ProfileService();
+
+

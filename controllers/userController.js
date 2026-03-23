@@ -1,4 +1,4 @@
-// User Controller handles user registration and login HTTP requests
+﻿// User Controller handles user registration and login HTTP requests
 // Now uses User Service for business logic, making the controller cleaner
 
 const userService = require("../services/userService");
@@ -145,6 +145,7 @@ exports.listCandidates = async (req, res, next) => {
     const candidates = await User.find({
       role: "candidate",
       isBlocked: { $ne: true },
+      isVerified: true,
     })
       .select(
         "fullName email currentJobTitle address profilePicture skills experience"
@@ -1621,4 +1622,8 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
 

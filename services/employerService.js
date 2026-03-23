@@ -1,4 +1,4 @@
-// employerService.js - Business logic for fetching recruiter data
+﻿// employerService.js - Business logic for fetching recruiter data
 
 // Import the User model
 const User = require("../models/userModel");
@@ -30,6 +30,7 @@ class EmployerService {
     const recruiters = await User.find({
       role: "recruiter",
       isBlocked: { $ne: true },
+      isVerified: true,
       email: { $ne: ADMIN_EMAIL }, // Exclude admin by email
     })
       .select(
@@ -115,6 +116,7 @@ class EmployerService {
       _id: recruiterId,
       role: "recruiter",
       isBlocked: { $ne: true },
+      isVerified: true,
     })
       .select(
         "fullName profilePicture address companySize foundedYear websiteUrl email phone about workspaceImages linkedinUrl instagramUrl facebookUrl profileVisibility"
@@ -196,3 +198,6 @@ class EmployerService {
 
 // Export a single instance of the EmployerService class
 module.exports = new EmployerService();
+
+
+
