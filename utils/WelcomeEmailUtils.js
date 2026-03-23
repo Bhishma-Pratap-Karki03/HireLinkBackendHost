@@ -12,7 +12,7 @@ const sendWelcomeEmail = async (email, fullName, role) => {
         : "Post job vacancies, hire candidates, and manage your recruitment process";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
       to: email,
       subject: `Welcome to ${appName}!`,
       html: `

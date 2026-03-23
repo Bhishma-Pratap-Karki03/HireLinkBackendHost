@@ -5,7 +5,7 @@ const sendPasswordResetEmail = async (email, resetCode) => {
         const appName = process.env.APP_NAME || "HireLink";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
       to: email,
       subject: `${appName} - Password Reset Code`,
       html: `
@@ -50,7 +50,7 @@ const sendPasswordChangedEmail = async (email, fullName) => {
         const appName = process.env.APP_NAME || "HireLink";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
       to: email,
       subject: `${appName} - Password Changed Successfully`,
       html: `

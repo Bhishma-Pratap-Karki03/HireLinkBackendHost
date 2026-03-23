@@ -5,7 +5,7 @@ const sendVerificationEmail = async (email, verificationCode) => {
         const appName = process.env.APP_NAME || "HireLink";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
       to: email,
       subject: `${appName} - Email Verification Code`,
       html: `

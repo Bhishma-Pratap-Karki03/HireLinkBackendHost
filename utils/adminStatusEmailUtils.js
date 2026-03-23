@@ -1,7 +1,7 @@
 ﻿const { sendEmail } = require("./mailSender");
 
 const appName = process.env.APP_NAME || "HireLink";
-const fromAddress = process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`;
+const fromAddress = process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`;
 const supportEmail = (process.env.EMAIL_FROM || "hirelinknp@gmail.com").replace(/^.*<([^>]+)>.*$/, "$1");
 
 const wrapEmailLayout = ({ title, subtitle, accentColor, bodyHtml }) => `
