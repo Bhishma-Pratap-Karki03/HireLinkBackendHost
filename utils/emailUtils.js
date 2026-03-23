@@ -1,33 +1,11 @@
-﻿const nodemailer = require("nodemailer");
-
-const createTransporter = () => {
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const secure =
-    String(process.env.EMAIL_SECURE || "").toLowerCase() === "true" ||
-    port === 465;
-
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port,
-    secure,
-    requireTLS: !secure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    connectionTimeout: 20000,
-    greetingTimeout: 15000,
-    socketTimeout: 30000,
-  });
-};
+﻿const { sendEmail } = require("./mailSender");
 
 const sendVerificationEmail = async (email, verificationCode) => {
   try {
-    const transporter = createTransporter();
-    const appName = process.env.APP_NAME || "HireLink";
+        const appName = process.env.APP_NAME || "HireLink";
 
     const mailOptions = {
-      from: `"${appName}" <${process.env.EMAIL_FROM}>`,
+      from: process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`, 
       to: email,
       subject: `${appName} - Email Verification Code`,
       html: `
@@ -58,7 +36,7 @@ const sendVerificationEmail = async (email, verificationCode) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`Verification email sent to: ${email}`);
     return true;
   } catch (error) {
@@ -68,4 +46,6 @@ const sendVerificationEmail = async (email, verificationCode) => {
 };
 
 module.exports = { sendVerificationEmail };
+
+
 

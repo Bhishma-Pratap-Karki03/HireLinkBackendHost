@@ -1,30 +1,8 @@
-﻿const nodemailer = require("nodemailer");
-
-const createTransporter = () => {
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const secure =
-    String(process.env.EMAIL_SECURE || "").toLowerCase() === "true" ||
-    port === 465;
-
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port,
-    secure,
-    requireTLS: !secure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    connectionTimeout: 20000,
-    greetingTimeout: 15000,
-    socketTimeout: 30000,
-  });
-};
+﻿const { sendEmail } = require("./mailSender");
 
 const sendWelcomeEmail = async (email, fullName, role) => {
   try {
-    const transporter = createTransporter();
-    const appName = process.env.APP_NAME || "HireLink";
+        const appName = process.env.APP_NAME || "HireLink";
 
     // Determine user role for personalized message
     const userType = role === "candidate" ? "Candidate" : "Recruiter";
@@ -34,7 +12,7 @@ const sendWelcomeEmail = async (email, fullName, role) => {
         : "Post job vacancies, hire candidates, and manage your recruitment process";
 
     const mailOptions = {
-      from: `"${appName}" <${process.env.EMAIL_FROM}>`,
+      from: process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`, 
       to: email,
       subject: `Welcome to ${appName}!`,
       html: `
@@ -68,7 +46,7 @@ const sendWelcomeEmail = async (email, fullName, role) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    await sendEmail(mailOptions);
     console.log(`Welcome email sent to: ${email} (${role})`);
     return true;
   } catch (error) {
@@ -78,4 +56,6 @@ const sendWelcomeEmail = async (email, fullName, role) => {
 };
 
 module.exports = { sendWelcomeEmail };
+
+
 

@@ -1,29 +1,8 @@
-﻿const nodemailer = require("nodemailer");
-
-const createTransporter = () => {
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const secure =
-    String(process.env.EMAIL_SECURE || "").toLowerCase() === "true" ||
-    port === 465;
-
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port,
-    secure,
-    requireTLS: !secure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    connectionTimeout: 20000,
-    greetingTimeout: 15000,
-    socketTimeout: 30000,
-  });
-};
+﻿const { sendEmail } = require("./mailSender");
 
 const appName = process.env.APP_NAME || "HireLink";
-const fromAddress = `"${appName}" <${process.env.EMAIL_FROM}>`;
-const supportEmail = process.env.EMAIL_FROM || "hirelinknp@gmail.com";
+const fromAddress = process.env.EMAIL_FROM || `${appName} <onboarding@resend.dev>`;
+const supportEmail = (process.env.EMAIL_FROM || "hirelinknp@gmail.com").replace(/^.*<([^>]+)>.*$/, "$1");
 
 const wrapEmailLayout = ({ title, subtitle, accentColor, bodyHtml }) => `
   <div style="margin:0;padding:24px;background:#f3f6fb;font-family:Arial,Helvetica,sans-serif;">
@@ -52,11 +31,10 @@ const wrapEmailLayout = ({ title, subtitle, accentColor, bodyHtml }) => `
 
 const sendUserBlockedEmail = async ({ toEmail, fullName, role }) => {
   try {
-    const transporter = createTransporter();
-    const roleLabel =
+        const roleLabel =
       String(role || "").toLowerCase() === "recruiter" ? "Recruiter" : "Candidate";
 
-    await transporter.sendMail({
+    await sendEmail({
       from: fromAddress,
       to: toEmail,
       subject: `${appName} - Account Blocked Notice`,
@@ -100,13 +78,12 @@ const sendUnblockAuditEmailToAdmin = async ({
   targetRole,
 }) => {
   try {
-    const transporter = createTransporter();
-    const roleLabel =
+        const roleLabel =
       String(targetRole || "").toLowerCase() === "recruiter"
         ? "Recruiter"
         : "Candidate";
 
-    await transporter.sendMail({
+    await sendEmail({
       from: fromAddress,
       to: adminEmail,
       subject: `${appName} - User Unblocked`,
@@ -153,8 +130,7 @@ const sendUserRoleChangedEmail = async ({
   newRole,
 }) => {
   try {
-    const transporter = createTransporter();
-    const previousRoleLabel =
+        const previousRoleLabel =
       String(previousRole || "").toLowerCase() === "recruiter"
         ? "Recruiter"
         : "Candidate";
@@ -163,7 +139,7 @@ const sendUserRoleChangedEmail = async ({
         ? "Recruiter"
         : "Candidate";
 
-    await transporter.sendMail({
+    await sendEmail({
       from: fromAddress,
       to: toEmail,
       subject: `${appName} - Account Role Updated`,
@@ -209,4 +185,6 @@ module.exports = {
   sendUnblockAuditEmailToAdmin,
   sendUserRoleChangedEmail,
 };
+
+
 
