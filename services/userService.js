@@ -1,4 +1,4 @@
-// User Service handles user registration and login business logic
+﻿// User Service handles user registration and login business logic
 // This service separates the business logic from the HTTP layer
 
 const User = require("../models/userModel");
@@ -60,7 +60,10 @@ class UserService {
         await existingUser.save();
 
         // Send verification email to user
-        await sendVerificationEmail(email, verificationCode);
+        const emailSent = await sendVerificationEmail(email, verificationCode);
+        if (!emailSent) {
+          throw new Error("Failed to send verification email. Please try again.");
+        }
 
         return {
           success: true,
@@ -88,7 +91,10 @@ class UserService {
     });
 
     await newUser.save();
-    await sendVerificationEmail(email, verificationCode);
+    const emailSent = await sendVerificationEmail(email, verificationCode);
+        if (!emailSent) {
+          throw new Error("Failed to send verification email. Please try again.");
+        }
 
     return {
       success: true,
@@ -154,7 +160,10 @@ class UserService {
         user.verificationCodeExpires = verificationCodeExpires;
         await user.save();
 
-        await sendVerificationEmail(user.email, verificationCode);
+        const emailSent = await sendVerificationEmail(user.email, verificationCode);
+        if (!emailSent) {
+          throw new Error("Failed to send verification email. Please try again.");
+        }
 
         throw {
           name: "VerificationRequired",
@@ -211,3 +220,5 @@ class UserService {
 
 // Export a single instance of the UserService class
 module.exports = new UserService();
+
+
