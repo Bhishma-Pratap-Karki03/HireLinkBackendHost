@@ -1,18 +1,17 @@
-// Verification Routes - defines API endpoints for email verification
+// Email verification routes used during registration flow.
 
 const express = require("express");
 const router = express.Router();
 
-// Import the new verification controller
 const verificationController = require("../controllers/verificationController");
 
-// POST /api/verify/verify-email - Verify email with code
+// Verify email using OTP/code.
 router.post("/verify-email", verificationController.verifyEmail);
 
-// POST /api/verify/resend-verification - Resend verification code
+// Resend verification code to the same email.
 router.post("/resend-verification", verificationController.resendVerification);
 
-// GET /api/verify/check-status - Check verification status
+// Check whether an email is already verified.
 router.get("/check-status", verificationController.checkVerificationStatus);
 
 module.exports = router;

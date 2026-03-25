@@ -9,19 +9,30 @@ const recruiterAssessmentAttemptController = require("../controllers/recruiterAs
 
 const router = express.Router();
 
+// Recruiter creates a new assessment.
 router.post("/", protect, recruiterAssessmentController.createRecruiterAssessment);
+
+// Get one recruiter assessment by id.
 router.get("/:id", recruiterAssessmentController.getRecruiterAssessmentById);
+
+// Recruiter updates own assessment by id.
 router.put("/:id", protect, recruiterAssessmentController.updateRecruiterAssessment);
+
+// Candidate gets attempt meta for this assessment.
 router.get(
   "/:id/meta",
   protect,
   recruiterAssessmentAttemptController.getRecruiterAssessmentMeta,
 );
+
+// Candidate starts an attempt.
 router.post(
   "/:id/attempts/start",
   protect,
   recruiterAssessmentAttemptController.startRecruiterAttempt,
 );
+
+// Candidate saves draft answers (supports code file upload with key `codeFile`).
 router.post(
   "/:id/attempts/:attemptId/answers",
   protect,
@@ -29,6 +40,8 @@ router.post(
   handleSubmissionUploadError,
   recruiterAssessmentAttemptController.saveRecruiterAnswers,
 );
+
+// Candidate submits final attempt.
 router.post(
   "/:id/attempts/:attemptId/submit",
   protect,

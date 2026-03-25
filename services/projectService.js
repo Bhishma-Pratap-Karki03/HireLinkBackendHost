@@ -255,8 +255,8 @@ class ProjectService {
       }
     }
 
-    // Remove the project
-    project.remove();
+    // Remove the project from subdocument array (Mongoose 8 safe way)
+    user.projects.pull(projectId);
     await user.save();
 
     return {

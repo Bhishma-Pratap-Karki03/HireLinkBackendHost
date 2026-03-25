@@ -1,4 +1,4 @@
-// User Routes - defines API endpoints for user registration and login
+// User routes for auth, candidate listing, and admin dashboards/actions.
 
 const express = require("express");
 const router = express.Router();
@@ -15,20 +15,24 @@ const {
   getCandidateDashboardStats,
 } = require("../controllers/userController");
 
-// POST /api/users/register - Register a new user
+// Register a new user account.
 router.post("/register", registerUser);
 
-// POST /api/users/login - Login an existing user
+// Login user and return token.
 router.post("/login", loginUser);
-// GET /api/users/candidates - List candidates (recruiter/admin)
+// List candidate users (used by recruiter/admin views).
 router.get("/candidates", listCandidates);
 
-// Admin user management
+// Admin: list and dashboard insights.
 router.get("/admin/list", protect, listUsersForAdmin);
 router.get("/admin/dashboard-stats", protect, getAdminDashboardStats);
 router.get("/recruiter/dashboard-stats", protect, getRecruiterDashboardStats);
 router.get("/candidate/dashboard-stats", protect, getCandidateDashboardStats);
+
+// Admin: block/unblock user account.
 router.patch("/admin/:userId/status", protect, updateUserStatusByAdmin);
+
+// Admin: change user role (candidate/recruiter).
 router.patch("/admin/:userId/role", protect, updateUserRoleByAdmin);
 
 module.exports = router;

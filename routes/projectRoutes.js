@@ -1,23 +1,22 @@
-// projectRoutes.js
+// Project routes for candidate portfolio projects.
 const express = require("express");
 const router = express.Router();
 
-// Import the project controller
 const projectController = require("../controllers/projectController");
 const { protect } = require("../middleware/authMiddleware");
 
-// Import shared upload utilities
+// Shared upload helpers (image upload + validation).
 const {
   createImageUpload,
   handleMulterError,
   checkFileValidation,
 } = require("../utils/uploadConfig");
 
-// Configure multer for file uploads (project cover images)
+// Accept project cover image upload (max 5MB).
 const upload = createImageUpload("projects", 5);
 
-// Project management routes
-// POST /api/project - Add new project
+// Add a new project to logged-in user's profile.
+// Supports optional cover image field: coverImage
 router.post(
   "/",
   protect,
@@ -27,7 +26,8 @@ router.post(
   projectController.addProject
 );
 
-// PUT /api/project/:projectId - Update project
+// Update an existing project by projectId.
+// Supports optional new cover image field: coverImage
 router.put(
   "/:projectId",
   protect,
@@ -37,7 +37,7 @@ router.put(
   projectController.updateProject
 );
 
-// DELETE /api/project/:projectId - Remove project
+// Delete a project by projectId.
 router.delete("/:projectId", protect, projectController.removeProject);
 
 module.exports = router;

@@ -1,22 +1,21 @@
-// resumeRoutes.js
+// Resume routes for candidate resume upload/manage.
 const express = require("express");
 const router = express.Router();
 
 const resumeController = require("../controllers/resumeController");
 const { protect } = require("../middleware/authMiddleware");
 
-// Import shared upload utilities
+// Shared upload helpers (document upload + validation).
 const {
   createDocumentUpload,
   handleMulterError,
   checkFileValidation,
 } = require("../utils/uploadConfig");
 
-// Configure multer for resume uploads
+// Accept resume document upload (max 5MB).
 const upload = createDocumentUpload("resumes", 5);
 
-// Protected routes
-// POST /api/resume/upload - Upload resume
+// Upload/replace resume for logged-in candidate. Field name: resume
 router.post(
   "/upload",
   protect,
@@ -26,10 +25,10 @@ router.post(
   resumeController.uploadResume
 );
 
-// DELETE /api/resume/remove - Remove resume
+// Remove current resume from profile.
 router.delete("/remove", protect, resumeController.removeResume);
 
-// GET /api/resume/info - Get resume info
+// Get current resume metadata.
 router.get("/info", protect, resumeController.getResumeInfo);
 
 module.exports = router;

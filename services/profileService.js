@@ -504,8 +504,8 @@ class ProfileService {
       throw new Error("Experience not found");
     }
 
-    // Remove the experience
-    experience.remove();
+    // Remove the experience from subdocument array (Mongoose-safe).
+    user.experience.pull(experienceId);
     await user.save();
 
     return {
@@ -694,8 +694,8 @@ class ProfileService {
       throw new Error("Education not found");
     }
 
-    // Remove the education
-    education.remove();
+    // Remove the education from subdocument array (Mongoose-safe).
+    user.education.pull(educationId);
     await user.save();
 
     return {

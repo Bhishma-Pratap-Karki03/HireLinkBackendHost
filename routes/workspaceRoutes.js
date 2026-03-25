@@ -1,24 +1,22 @@
-// workspaceRoutes.js - Routes for workplace gallery
+// Workspace routes for recruiter workplace gallery images.
 
 const express = require("express");
 const router = express.Router();
 
-// Import controller
 const workspaceController = require("../controllers/workspaceController");
 const { protect } = require("../middleware/authMiddleware");
 
-// Import shared upload utilities
+// Shared upload helpers (validation + multer error handling).
 const {
   createImageUpload,
   handleMulterError,
   checkFileValidation,
 } = require("../utils/uploadConfig");
 
-// Configure multer for workspace image uploads
+// Accept workspace image upload (max 6MB).
 const upload = createImageUpload("workspace", 6);
 
-// Protected routes
-// POST /api/workspace/upload - Upload workspace image
+// Upload one workspace image. Form-data field name: workspaceImage
 router.post(
   "/upload",
   protect,
@@ -28,17 +26,17 @@ router.post(
   workspaceController.uploadWorkspaceImage
 );
 
-// GET /api/workspace/images - Get all workspace images
+// Get all workspace images for logged-in recruiter.
 router.get("/images", protect, workspaceController.getWorkspaceImages);
 
-// DELETE /api/workspace/image/:imageId - Delete workspace image
+// Delete one workspace image by imageId.
 router.delete(
   "/image/:imageId",
   protect,
   workspaceController.deleteWorkspaceImage
 );
 
-// PUT /api/workspace/reorder - Reorder workspace images
+// Update workspace image order.
 router.put("/reorder", protect, workspaceController.reorderWorkspaceImages);
 
 module.exports = router;
