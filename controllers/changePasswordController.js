@@ -171,6 +171,35 @@ exports.resendResetCode = async (req, res, next) => {
   }
 };
 
+// Handle password reset status check
+exports.checkResetStatus = async (req, res, next) => {
+  try {
+    const email = String(req.query.email || "");
+    const result = await passwordService.checkResetStatus(email);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Check reset status error:", error);
+
+    if (
+      error.message.includes("required") ||
+      error.message.includes("valid") ||
+      error.message.includes("not found")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    next(error);
+  }
+};
+
 // Handle authenticated password change
 exports.changePassword = async (req, res, next) => {
   try {

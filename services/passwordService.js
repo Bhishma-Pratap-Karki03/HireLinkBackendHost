@@ -74,16 +74,48 @@ class PasswordService {
       };
     }
 
-    // Generate reset code that expires in 15 minutes
+    const now = new Date();
+
+    // If user already has an active reset code, keep same code and timer.
+    if (user.resetCode && user.resetCodeExpires && user.resetCodeExpires > now) {
+      const timeLeft = Math.max(
+        0,
+        Math.ceil((user.resetCodeExpires - now) / 1000),
+      );
+
+      return {
+        success: true,
+        message:
+          "Password reset code already sent. Please continue with the existing code.",
+        email: normalizedEmail,
+        hasActiveCode: true,
+        codeExpired: false,
+        timeLeft,
+        expiresAt: user.resetCodeExpires,
+      };
+    }
+
+    // If old reset code expired, do not auto-send a new one from this endpoint.
+    if (user.resetCode && user.resetCodeExpires && user.resetCodeExpires <= now) {
+      return {
+        success: true,
+        message:
+          "Previous reset code expired. Please use resend code from verification page.",
+        email: normalizedEmail,
+        hasActiveCode: false,
+        codeExpired: true,
+        timeLeft: 0,
+        expiresAt: user.resetCodeExpires,
+      };
+    }
+
+    // First time request: generate and send reset code.
     const resetCode = generateResetCode();
     const resetCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
-
-    // Save reset code to user document
     user.resetCode = resetCode;
     user.resetCodeExpires = resetCodeExpires;
     await user.save();
 
-    // Send password reset email to user
     const emailSent = await sendPasswordResetEmail(normalizedEmail, resetCode);
     if (!emailSent) {
       throw new Error("Failed to send reset email. Please try again.");
@@ -93,7 +125,42 @@ class PasswordService {
       success: true,
       message: "Password reset code sent to your email.",
       email: normalizedEmail,
+      hasActiveCode: true,
+      codeExpired: false,
+      timeLeft: 15 * 60,
       expiresAt: resetCodeExpires,
+    };
+  }
+
+  // Check current password-reset code status for an email.
+  async checkResetStatus(email) {
+    if (!email || typeof email !== "string") {
+      throw new Error("Email is required");
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!emailRegex.test(normalizedEmail)) {
+      throw new Error("Please provide a valid email address");
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const now = new Date();
+    const isExpired = user.resetCodeExpires ? user.resetCodeExpires <= now : true;
+    const hasPendingReset = Boolean(user.resetCode);
+    const timeLeft =
+      user.resetCodeExpires && !isExpired
+        ? Math.max(0, Math.ceil((user.resetCodeExpires - now) / 1000))
+        : 0;
+
+    return {
+      hasPendingReset,
+      expiresAt: user.resetCodeExpires || null,
+      timeLeft,
+      isExpired,
     };
   }
 

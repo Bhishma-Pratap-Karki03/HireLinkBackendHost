@@ -10,6 +10,9 @@ const changePasswordController = require("../controllers/changePasswordControlle
 // POST /api/password/request-reset - Request password reset
 router.post("/request-reset", changePasswordController.requestPasswordReset);
 
+// GET /api/password/check-status - Check reset code status
+router.get("/check-status", changePasswordController.checkResetStatus);
+
 // POST /api/password/verify-code - Verify reset code
 router.post("/verify-code", changePasswordController.verifyResetCode);
 
