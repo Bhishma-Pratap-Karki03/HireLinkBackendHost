@@ -40,7 +40,20 @@ exports.registerUser = async (req, res, next) => {
       userType
     );
 
-    // Return success response
+    // Existing account but not verified: guide user to verification flow.
+    if (result.requiresVerification && result.emailExists) {
+      const message = result.hasActiveCode
+        ? `Email already registered but not verified. Please verify using your existing code (${Math.ceil((result.timeLeft || 0) / 60)} minute(s) left).`
+        : "Email already registered but not verified. Previous code expired, please resend a new verification code.";
+
+      return res.status(200).json({
+        success: false,
+        message,
+        ...result,
+      });
+    }
+
+    // Return success response for new registration.
     res.status(201).json({
       success: true,
       message: "Registration successful! Verification code sent to your email.",

@@ -48,30 +48,51 @@ class UserService {
       if (existingUser.isVerified) {
         throw new Error("Email already exists and is verified. Please login.");
       } else {
-        // If user exists but isn't verified, update their info and send new verification code
-        const verificationCode = generateVerificationCode();
-        const verificationCodeExpires = new Date(Date.now() + 15 * 60 * 1000);
-
+        // If account exists but not verified, keep same account details.
         existingUser.fullName = fullName;
         existingUser.password = password; // Password will be hashed automatically by model
         existingUser.role = role;
-        existingUser.verificationCode = verificationCode;
-        existingUser.verificationCodeExpires = verificationCodeExpires;
         await existingUser.save();
 
-        // Send verification email to user
-        const emailSent = await sendVerificationEmail(email, verificationCode);
-        if (!emailSent) {
-          throw new Error("Failed to send verification email. Please try again.");
+        // If old verification code is still valid, let user continue with same code and timer.
+        if (
+          existingUser.verificationCode &&
+          existingUser.verificationCodeExpires &&
+          existingUser.verificationCodeExpires > new Date()
+        ) {
+          const timeLeft = Math.max(
+            0,
+            Math.ceil((existingUser.verificationCodeExpires - new Date()) / 1000)
+          );
+
+          return {
+            success: false,
+            emailExists: true,
+            requiresVerification: true,
+            hasActiveCode: true,
+            codeExpired: false,
+            timeLeft,
+            email: existingUser.email,
+            user: {
+              id: existingUser._id,
+              email: existingUser.email,
+            },
+          };
         }
 
+        // If code expired, ask user to resend from verification page (do not send new code here).
         return {
-          success: true,
+          success: false,
+          emailExists: true,
+          requiresVerification: true,
+          hasActiveCode: false,
+          codeExpired: true,
+          timeLeft: 0,
+          email: existingUser.email,
           user: {
             id: existingUser._id,
             email: existingUser.email,
           },
-          requiresVerification: true,
         };
       }
     }
