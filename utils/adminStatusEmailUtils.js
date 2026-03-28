@@ -1,8 +1,12 @@
-﻿const { sendEmail } = require("./mailSender");
+const { sendEmail } = require("./mailSender");
 
 const appName = process.env.APP_NAME || "HireLink";
-const fromAddress = process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`;
-const supportEmail = (process.env.EMAIL_FROM || "hirelinknp@gmail.com").replace(/^.*<([^>]+)>.*$/, "$1");
+const fromAddress =
+  process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`;
+const supportEmail = (process.env.EMAIL_FROM || "hirelinknp@gmail.com").replace(
+  /^.*<([^>]+)>.*$/,
+  "$1",
+);
 
 const wrapEmailLayout = ({ title, subtitle, accentColor, bodyHtml }) => `
   <div style="margin:0;padding:24px;background:#f3f6fb;font-family:Arial,Helvetica,sans-serif;">
@@ -31,7 +35,7 @@ const wrapEmailLayout = ({ title, subtitle, accentColor, bodyHtml }) => `
 
 const sendUserBlockedEmail = async ({ toEmail, fullName, role }) => {
   try {
-        const roleLabel =
+    const roleLabel =
       String(role || "").toLowerCase() === "recruiter" ? "Recruiter" : "Candidate";
 
     await sendEmail({
@@ -71,46 +75,36 @@ const sendUserBlockedEmail = async ({ toEmail, fullName, role }) => {
   }
 };
 
-const sendUnblockAuditEmailToAdmin = async ({
-  adminEmail,
-  targetEmail,
-  targetName,
-  targetRole,
-}) => {
+const sendUserUnblockedEmail = async ({ toEmail, fullName, role }) => {
   try {
-        const roleLabel =
-      String(targetRole || "").toLowerCase() === "recruiter"
-        ? "Recruiter"
-        : "Candidate";
+    const roleLabel =
+      String(role || "").toLowerCase() === "recruiter" ? "Recruiter" : "Candidate";
 
     await sendEmail({
       from: fromAddress,
-      to: adminEmail,
-      subject: `${appName} - User Unblocked`,
+      to: toEmail,
+      subject: `${appName} - Account Unblocked Notice`,
       html: wrapEmailLayout({
-        title: "User Unblocked",
-        subtitle: "Admin audit log for account status change.",
+        title: "Account Unblocked",
+        subtitle: "Your profile access has been restored by admin action.",
         accentColor: "#1b9c5a",
         bodyHtml: `
+          <p style="margin:0 0 12px;font-size:15px;color:#2a3a4d;line-height:1.7;">Hello <strong>${fullName || "User"}</strong>,</p>
           <p style="margin:0 0 16px;font-size:15px;color:#2a3a4d;line-height:1.7;">
-            A user account has been successfully unblocked.
+            Your <strong>${roleLabel.toLowerCase()}</strong> account on <strong>${appName}</strong> has been unblocked by an administrator.
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #dbe5f0;border-radius:10px;background:#f8fbff;">
             <tr>
-              <td style="padding:10px 12px;font-size:13px;color:#5e6f86;width:140px;">Name</td>
-              <td style="padding:10px 12px;font-size:14px;color:#10253e;font-weight:600;">${targetName || "User"}</td>
+              <td style="padding:10px 12px;font-size:13px;color:#5e6f86;width:140px;">Account Type</td>
+              <td style="padding:10px 12px;font-size:14px;color:#10253e;font-weight:600;">${roleLabel}</td>
             </tr>
             <tr>
               <td style="padding:10px 12px;font-size:13px;color:#5e6f86;border-top:1px solid #e5edf7;">Email</td>
-              <td style="padding:10px 12px;font-size:14px;color:#10253e;font-weight:600;border-top:1px solid #e5edf7;">${targetEmail || "-"}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 12px;font-size:13px;color:#5e6f86;border-top:1px solid #e5edf7;">Role</td>
-              <td style="padding:10px 12px;font-size:14px;color:#10253e;font-weight:600;border-top:1px solid #e5edf7;">${roleLabel}</td>
+              <td style="padding:10px 12px;font-size:14px;color:#10253e;font-weight:600;border-top:1px solid #e5edf7;">${toEmail}</td>
             </tr>
           </table>
           <div style="margin-top:16px;padding:12px 14px;border-radius:10px;background:#f1fbf5;border:1px solid #ccefd9;color:#1f6a3d;font-size:13px;line-height:1.6;">
-            This audit copy was sent to <strong>${adminEmail}</strong> as requested.
+            You can now login and continue using your account.
           </div>
         `,
       }),
@@ -118,7 +112,7 @@ const sendUnblockAuditEmailToAdmin = async ({
 
     return true;
   } catch (error) {
-    console.error("Error sending unblock audit email:", error);
+    console.error("Error sending unblocked-email:", error);
     return false;
   }
 };
@@ -130,7 +124,7 @@ const sendUserRoleChangedEmail = async ({
   newRole,
 }) => {
   try {
-        const previousRoleLabel =
+    const previousRoleLabel =
       String(previousRole || "").toLowerCase() === "recruiter"
         ? "Recruiter"
         : "Candidate";
@@ -182,9 +176,6 @@ const sendUserRoleChangedEmail = async ({
 
 module.exports = {
   sendUserBlockedEmail,
-  sendUnblockAuditEmailToAdmin,
+  sendUserUnblockedEmail,
   sendUserRoleChangedEmail,
 };
-
-
-

@@ -309,6 +309,10 @@ exports.scanJobApplications = async (req, res) => {
         reports.push(report);
         successful += 1;
       } catch (scanItemError) {
+        console.error(
+          `ATS scan item failed for application ${application?._id}:`,
+          scanItemError,
+        );
         failed += 1;
       } finally {
         try {
@@ -330,6 +334,13 @@ exports.scanJobApplications = async (req, res) => {
       success: true,
       message: `ATS scan completed (${normalizedMode})`,
       mode: normalizedMode,
+      summary: {
+        total: applications.length,
+        processed,
+        successful,
+        failed,
+        skipped,
+      },
       run: run
         ? {
             id: run._id,

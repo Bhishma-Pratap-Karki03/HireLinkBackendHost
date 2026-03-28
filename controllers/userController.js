@@ -16,7 +16,7 @@ const SavedJob = require("../models/savedJobModel");
 const RecommendationHistory = require("../models/recommendationHistoryModel");
 const {
   sendUserBlockedEmail,
-  sendUnblockAuditEmailToAdmin,
+  sendUserUnblockedEmail,
   sendUserRoleChangedEmail,
 } = require("../utils/adminStatusEmailUtils");
 
@@ -272,11 +272,10 @@ exports.updateUserStatusByAdmin = async (req, res, next) => {
           role: targetUser.role,
         });
       } else {
-        emailSent = await sendUnblockAuditEmailToAdmin({
-          adminEmail: ADMIN_EMAIL,
-          targetEmail: targetUser.email,
-          targetName: targetUser.fullName,
-          targetRole: targetUser.role,
+        emailSent = await sendUserUnblockedEmail({
+          toEmail: targetUser.email,
+          fullName: targetUser.fullName,
+          role: targetUser.role,
         });
       }
     }
@@ -602,8 +601,13 @@ exports.getAdminDashboardStats = async (req, res, next) => {
             recruiterPicture: {
               $ifNull: [{ $arrayElemAt: ["$recruiter.profilePicture", 0] }, ""],
             },
+            recruiterCreatedAt: {
+              $ifNull: [{ $arrayElemAt: ["$recruiter.createdAt", 0] }, new Date(0)],
+            },
           },
         },
+        // Sort by highest post count first; ties go to older registered recruiters.
+        { $sort: { count: -1, recruiterCreatedAt: 1, recruiterName: 1 } },
         {
           $project: {
             _id: "$recruiterName",
@@ -611,7 +615,6 @@ exports.getAdminDashboardStats = async (req, res, next) => {
             logo: "$recruiterPicture",
           },
         },
-        { $sort: { count: -1 } },
         { $limit: 5 },
       ]),
       AdminAssessment.countDocuments({
