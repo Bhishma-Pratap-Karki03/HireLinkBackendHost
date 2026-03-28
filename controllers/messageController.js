@@ -289,4 +289,52 @@ exports.sendMessage = async (req, res, next) => {
   }
 };
 
+exports.deleteConversation = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    const { userId: otherUserId } = req.params;
+
+    if (!userId || !isValidObjectId(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    if (!otherUserId || !isValidObjectId(otherUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid userId is required",
+      });
+    }
+
+    if (userId === otherUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid conversation target",
+      });
+    }
+
+    const deleteResult = await Message.deleteMany({
+      $or: [
+        { sender: userId, receiver: otherUserId },
+        { sender: otherUserId, receiver: userId },
+      ],
+    });
+
+    const io = getIO();
+    const payload = { userId, otherUserId };
+    io?.to(`user:${userId}`).emit("message:conversation:deleted", payload);
+    io?.to(`user:${otherUserId}`).emit("message:conversation:deleted", payload);
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation deleted",
+      deletedCount: deleteResult?.deletedCount || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

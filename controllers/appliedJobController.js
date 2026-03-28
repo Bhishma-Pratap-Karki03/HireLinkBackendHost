@@ -1,4 +1,4 @@
-const path = require("path"); // Node utility to build safe file paths (works on Windows/Linux)
+﻿const path = require("path"); // Node utility to build safe file paths (works on Windows/Linux)
 const fs = require("fs"); // Node file system module to read/write/move/copy/delete resume files
 // This controller handles candidate applications, recruiter review flow, and assessment details.
 
@@ -204,12 +204,19 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
+    // Resolve company name from the recruiter owner (fallback to job department only if missing)
+    let resolvedCompanyName = "";
+    if (job?.recruiterId) {
+      const jobOwner = await User.findById(job.recruiterId).select("fullName").lean();
+      resolvedCompanyName = String(jobOwner?.fullName || "").trim();
+    }
+
     // Create the job application document
     const application = await AppliedJob.create({
       candidate: userId, // who applied
       job: jobId, // which job
       jobTitle: job.jobTitle || "Untitled Role", // store job title at apply time
-      companyName: job.companyName || job.department || "Company", // store company name at apply time
+      companyName: resolvedCompanyName || job.department || "Company", // store company name at apply time
       resumeUrl: finalResumeUrl, // saved resume location
       resumePublicId: finalResumePublicId,
       resumeFileName: finalFileName, // original name / copied file name
@@ -567,7 +574,13 @@ exports.updateApplicationStatus = async (req, res) => {
       const recruiterActor = await User.findById(userId)
         .select("fullName role profilePicture")
         .lean();
+      const recruiterCompany = String(recruiterActor?.fullName || "").trim();
       const jobTitle = application.job?.jobTitle || application.jobTitle || "your application";
+      const companyName =
+        recruiterCompany ||
+        application.job?.companyName ||
+        application.companyName ||
+        "the company";
       const statusLabel = toStatusLabel(status);
 
       const notification = await Notification.create({
@@ -575,7 +588,7 @@ exports.updateApplicationStatus = async (req, res) => {
         actor: userId,
         type: "application_status_updated",
         application: application._id,
-        message: `Your application for "${jobTitle}" was updated to ${statusLabel}.`,
+        message: `Your application for "${jobTitle}" at ${companyName} was updated to ${statusLabel}.`,
       });
 
       const unreadCount = await Notification.countDocuments({
@@ -606,7 +619,7 @@ exports.updateApplicationStatus = async (req, res) => {
             targetPath: "/candidate/applied-status",
             actor: {
               id: recruiterActor?._id?.toString() || userId,
-              fullName: recruiterActor?.fullName || "Recruiter",
+              fullName: companyName || "Company",
               role: recruiterActor?.role || "recruiter",
               profilePicture: recruiterActor?.profilePicture || "",
             },
@@ -644,7 +657,7 @@ exports.getMyApplications = async (req, res) => {
     const applications = await AppliedJob.find({ candidate: userId })
       .populate({
         path: "job",
-        select: "jobTitle location jobType recruiterId",
+        select: "jobTitle location jobType recruiterId companyName department",
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -673,12 +686,26 @@ exports.getMyApplications = async (req, res) => {
     const mapped = applications.map((item) => {
       const recruiterId = item?.job?.recruiterId?.toString() || "";
       const recruiter = recruiterMap.get(recruiterId);
+      const recruiterName = String(recruiter?.fullName || "").trim();
+      const storedCompanyName = String(item.companyName || "").trim();
+      const jobCompanyName = String(item?.job?.companyName || "").trim();
+      const jobDepartment = String(item?.job?.department || "").trim();
+      const storedLooksLikeDepartment =
+        storedCompanyName &&
+        jobDepartment &&
+        storedCompanyName.toLowerCase() === jobDepartment.toLowerCase();
+      const resolvedCompanyName =
+        recruiterName ||
+        (storedLooksLikeDepartment ? "" : storedCompanyName) ||
+        jobCompanyName ||
+        jobDepartment ||
+        "Company";
 
       return {
         id: item._id,
-        jobId: item.job?._id || item.job,
+        jobId: item?.job?._id?.toString?.() || item?.job?.toString?.() || "",
         jobTitle: item.jobTitle || item?.job?.jobTitle || "Untitled Role",
-        companyName: item.companyName || recruiter?.fullName || "Company",
+        companyName: resolvedCompanyName,
         location: item?.job?.location || "Location not specified",
         jobType: item?.job?.jobType || "Job type not specified",
         appliedAt: item.createdAt,
@@ -908,3 +935,5 @@ exports.getApplicationAssessmentById = async (req, res) => {
     });
   }
 };
+
+

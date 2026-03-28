@@ -23,6 +23,39 @@ const buildProfilePath = (userDoc) => {
   return role === "recruiter" ? `/employer/${id}` : `/candidate/${id}`;
 };
 
+const buildApplicationStatusMessage = (item, actorName) => {
+  const application = item.application || {};
+  const companyName =
+    actorName ||
+    application.companyName ||
+    application.job?.companyName ||
+    "the company";
+  const jobTitle =
+    application.jobTitle ||
+    application.job?.jobTitle ||
+    "your application";
+
+  const currentMessage = (item.message || "").trim();
+  if (!currentMessage) {
+    return `Your application for "${jobTitle}" at ${companyName} was updated.`;
+  }
+  const withCompanyMatch = currentMessage.match(
+    /^Your application for "(.+?)" at (.+?) was updated to (.+)\.$/i,
+  );
+  if (withCompanyMatch) {
+    return `Your application for "${withCompanyMatch[1]}" at ${companyName} was updated to ${withCompanyMatch[3]}.`;
+  }
+
+  const withoutCompanyMatch = currentMessage.match(
+    /^Your application for "(.+?)" was updated to (.+)\.$/i,
+  );
+  if (withoutCompanyMatch) {
+    return `Your application for "${withoutCompanyMatch[1]}" at ${companyName} was updated to ${withoutCompanyMatch[2]}.`;
+  }
+
+  return `${currentMessage} (${companyName})`;
+};
+
 const mapNotification = (item) => {
   const actorId = item.actor?._id?.toString?.() || item.actor?.toString?.() || "";
   const actorRole = item.actor?.role || "";
@@ -32,11 +65,13 @@ const mapNotification = (item) => {
       ? `${actorName} accepted your connection request.`
       : item.type === "connection_request_received"
         ? `${actorName} sent you a connection request.`
+        : item.type === "application_status_updated"
+          ? buildApplicationStatusMessage(item, actorName)
         : item.type === "project_review_received"
           ? item.message || `${actorName} reviewed your project.`
           : item.type === "company_review_received"
             ? item.message || `${actorName} reviewed your company profile.`
-        : item.message || "Your application status was updated.";
+            : item.message || "Your application status was updated.";
   const targetPath =
     item.targetPath ||
     (item.type === "application_status_updated"
@@ -65,6 +100,11 @@ const emitNotificationCreated = async (userId, notificationId) => {
 
   const notification = await Notification.findById(notificationId)
     .populate("actor", "fullName role profilePicture")
+    .populate({
+      path: "application",
+      select: "jobTitle companyName job",
+      populate: { path: "job", select: "jobTitle companyName" },
+    })
     .lean();
   if (!notification) return;
 
@@ -644,6 +684,11 @@ exports.getRecentConnectionNotifications = async (req, res, next) => {
     const [notifications, total] = await Promise.all([
       Notification.find(query)
       .populate("actor", "fullName role profilePicture")
+      .populate({
+        path: "application",
+        select: "jobTitle companyName job",
+        populate: { path: "job", select: "jobTitle companyName" },
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -706,6 +751,11 @@ exports.markConnectionNotificationRead = async (req, res, next) => {
       { new: true }
     )
       .populate("actor", "fullName role profilePicture")
+      .populate({
+        path: "application",
+        select: "jobTitle companyName job",
+        populate: { path: "job", select: "jobTitle companyName" },
+      })
       .lean();
 
     if (!notification) {
@@ -785,6 +835,13 @@ exports.deleteConnectionNotification = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
+
+
+
 
 
 
