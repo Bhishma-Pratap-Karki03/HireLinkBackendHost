@@ -1,36 +1,135 @@
 const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
 const path = require("path");
 
-//configure cloudinary with environment variables
+// Storage mode toggle: "cloudinary" (default) or "local".
+const STORAGE_MODE = String(process.env.STORAGE_MODE || "cloudinary")
+  .trim()
+  .toLowerCase();
+
+// Configure Cloudinary (used when STORAGE_MODE=cloudinary).
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// uploads the file to cloudinary and returns the result
-//returns secure_url, public_id, and other details about the uploaded file
+const PUBLIC_UPLOADS_ROOT = path.join(__dirname, "..", "public", "uploads");
+
+const ensureDir = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+const sanitizeSegment = (segment = "") =>
+  String(segment)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const toLocalRelativeFolder = (folder = "") => {
+  const normalized = String(folder || "")
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .map(sanitizeSegment)
+    .filter(Boolean)
+    .join("/");
+
+  return normalized || "misc";
+};
+
+const buildUniqueName = (sourcePath) => {
+  const ext = path.extname(sourcePath || "");
+  const base = path.basename(sourcePath || "file", ext) || "file";
+  const suffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+  return `${sanitizeSegment(base)}-${suffix}${ext}`;
+};
+
+const toUploadsUrl = (absolutePath) => {
+  const relative = path
+    .relative(PUBLIC_UPLOADS_ROOT, absolutePath)
+    .replace(/\\/g, "/");
+  return `/uploads/${relative}`;
+};
+
+const resolveLocalTarget = ({ filePath, folder = "" }) => {
+  const safeFolder = toLocalRelativeFolder(folder);
+  const folderPath = path.join(PUBLIC_UPLOADS_ROOT, safeFolder);
+  ensureDir(folderPath);
+
+  const fileName = buildUniqueName(filePath);
+  const absoluteTarget = path.join(folderPath, fileName);
+  const secureUrl = toUploadsUrl(absoluteTarget);
+  const publicId = `uploads/${safeFolder}/${fileName}`.replace(/\\/g, "/");
+
+  return { absoluteTarget, secureUrl, publicId };
+};
+
+const uploadFileToLocal = async (filePath, options = {}) => {
+  const { absoluteTarget, secureUrl, publicId } = resolveLocalTarget({
+    filePath,
+    folder: options.folder,
+  });
+
+  // Keep source temp file as-is; controllers/services already clean temp after upload.
+  fs.copyFileSync(filePath, absoluteTarget);
+
+  return {
+    secure_url: secureUrl,
+    public_id: publicId,
+    resource_type: options.resource_type || "auto",
+  };
+};
+
+const localPathFromPublicIdOrUrl = (value = "") => {
+  if (!value || typeof value !== "string") return "";
+
+  if (value.startsWith("/uploads/")) {
+    return path.join(__dirname, "..", "public", value.replace(/^\//, ""));
+  }
+
+  if (value.startsWith("uploads/")) {
+    return path.join(__dirname, "..", "public", value);
+  }
+
+  return "";
+};
+
+// Upload helper used by controllers/services.
 const uploadFileToCloudinary = async (filePath, options = {}) => {
+  if (STORAGE_MODE === "local") {
+    return uploadFileToLocal(filePath, options);
+  }
   return cloudinary.uploader.upload(filePath, options);
 };
 
-// This deletes a file from cloudinary using its public_id. It returns the result of the deletion operation, which includes details about the deleted file or an error if the deletion fails.
+// Delete helper used by controllers/services.
 const deleteFromCloudinary = async (publicId, options = {}) => {
-  // if pubic id is missing the function simply returns null instead of attempting to delete anything, preventing unnecessary API calls and potential errors.
   if (!publicId) return null;
+
+  if (STORAGE_MODE === "local") {
+    const localPath = localPathFromPublicIdOrUrl(publicId);
+    if (!localPath) return { result: "not_found" };
+    if (fs.existsSync(localPath)) {
+      fs.unlinkSync(localPath);
+      return { result: "ok" };
+    }
+    return { result: "not_found" };
+  }
+
   return cloudinary.uploader.destroy(publicId, options);
 };
 
-//extracts the public id from the URL
+// Extract Cloudinary public id from URL.
 const extractPublicIdFromCloudinaryUrl = (url = "") => {
-  // Validate input checks URL exsists, it is string, it is a cloudinary url
   if (!url || typeof url !== "string" || !url.includes("res.cloudinary.com")) {
     return "";
   }
 
   try {
     const parsed = new URL(url);
-    // breaks down the url into the array parts.
     const parts = parsed.pathname.split("/").filter(Boolean);
     const uploadIndex = parts.findIndex((part) => part === "upload");
     if (uploadIndex === -1 || uploadIndex >= parts.length - 1) {
@@ -56,7 +155,8 @@ const extractPublicIdFromCloudinaryUrl = (url = "") => {
     return "";
   }
 };
-// Documents like resume PDFs may fail to open if URL uses /image/upload/ instead of /raw/upload/.
+
+// Convert cloudinary image URL to raw URL for document preview/download.
 const normalizeCloudinaryDocumentUrl = (url = "") => {
   if (!url || typeof url !== "string" || !url.includes("res.cloudinary.com")) {
     return url || "";
@@ -70,6 +170,7 @@ const normalizeCloudinaryDocumentUrl = (url = "") => {
 
 module.exports = {
   cloudinary,
+  STORAGE_MODE,
   uploadFileToCloudinary,
   deleteFromCloudinary,
   extractPublicIdFromCloudinaryUrl,
