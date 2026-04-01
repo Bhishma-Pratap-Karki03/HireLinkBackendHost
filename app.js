@@ -24,16 +24,25 @@ const recommendationRoutes = require("./routes/recommendationRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 
 // CORS configuration
-const allowedOrigins = process.env.CLIENT_URL
+const normalizeOrigin = (value = "") => String(value || "").trim().replace(/\/$/, "");
+const allowedOrigins = (process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(",")
-  : ["http://localhost:5173"];
+  : ["http://localhost:5173"]
+).map(normalizeOrigin).filter(Boolean);
+
+const isLocalDevOrigin = (origin = "") =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizeOrigin(origin));
 
 app.use(
   cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      const normalizedOrigin = normalizeOrigin(origin);
+      if (
+        allowedOrigins.includes(normalizedOrigin) ||
+        (process.env.NODE_ENV !== "production" && isLocalDevOrigin(normalizedOrigin))
+      ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
