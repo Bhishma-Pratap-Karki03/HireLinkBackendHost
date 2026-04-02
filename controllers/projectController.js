@@ -110,6 +110,7 @@ exports.updateProject = async (req, res, next) => {
       isOngoing,
       projectUrl,
       technologies,
+      removeCoverImage,
     } = req.body;
 
     // Prepare project data
@@ -121,6 +122,7 @@ exports.updateProject = async (req, res, next) => {
       isOngoing,
       projectUrl,
       technologies,
+      removeCoverImage,
     };
 
     let fileData = null;

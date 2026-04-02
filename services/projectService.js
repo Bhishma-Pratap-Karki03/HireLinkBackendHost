@@ -117,6 +117,7 @@ class ProjectService {
       isOngoing,
       projectUrl,
       technologies,
+      removeCoverImage,
     } = projectData;
 
     const user = await User.findById(userId);
@@ -192,6 +193,12 @@ class ProjectService {
 
     const shouldRemoveCoverImage =
       removeCoverImage === true || removeCoverImage === "true";
+
+    // Keep cover image mandatory on update:
+    // if user removes existing cover, they must provide a new one in the same request.
+    if (shouldRemoveCoverImage && !fileData) {
+      throw new ValidationError("Project cover image is required");
+    }
 
     // Handle cover image update if new file is uploaded
     if (fileData) {
