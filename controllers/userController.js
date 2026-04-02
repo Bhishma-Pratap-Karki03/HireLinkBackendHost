@@ -1299,6 +1299,7 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
       unreadMessages,
       pendingConnections,
       acceptedConnections,
+      totalConnectedUsers,
       attemptsSubmitted,
       attemptsInProgress,
       avgQuizScoreAgg,
@@ -1358,12 +1359,15 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
       ConnectionRequest.countDocuments({
         recipient: candidateId,
         status: "pending",
-        createdAt: dateRangeQuery,
       }),
       ConnectionRequest.countDocuments({
         $or: [{ requester: candidateId }, { recipient: candidateId }],
         status: "accepted",
         createdAt: dateRangeQuery,
+      }),
+      ConnectionRequest.countDocuments({
+        $or: [{ requester: candidateId }, { recipient: candidateId }],
+        status: "accepted",
       }),
       AssessmentAttempt.countDocuments({
         candidate: candidateId,
@@ -1605,6 +1609,7 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
         connections: {
           pending: pendingConnections,
           accepted: acceptedConnections,
+          totalConnectedUsers,
         },
         trends: {
           labels,

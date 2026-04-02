@@ -31,6 +31,11 @@ class ProjectService {
       throw new ValidationError("Start date is required");
     }
 
+    // Cover image is required when creating a new project.
+    if (!fileData || !fileData.coverImageUrl) {
+      throw new ValidationError("Project cover image is required");
+    }
+
     // Validate dates
     const start = new Date(startDate);
     if (isNaN(start.getTime())) {
@@ -81,14 +86,12 @@ class ProjectService {
       updatedAt: new Date(),
     };
 
-    // Handle cover image if uploaded
-    if (fileData) {
-      const { coverImageUrl, coverImagePublicId, fileName, fileSize } = fileData;
-      newProject.coverImage = coverImageUrl;
-      newProject.coverImagePublicId = coverImagePublicId || "";
-      newProject.coverImageFileName = fileName;
-      newProject.coverImageFileSize = fileSize;
-    }
+    // Save required cover image details for the new project.
+    const { coverImageUrl, coverImagePublicId, fileName, fileSize } = fileData;
+    newProject.coverImage = coverImageUrl;
+    newProject.coverImagePublicId = coverImagePublicId || "";
+    newProject.coverImageFileName = fileName;
+    newProject.coverImageFileSize = fileSize;
 
     // Add to user's projects array
     user.projects.push(newProject);
