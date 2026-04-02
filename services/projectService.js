@@ -20,6 +20,7 @@ class ProjectService {
       isOngoing,
       projectUrl,
       technologies,
+      removeCoverImage,
     } = projectData;
 
     // Validate required fields
@@ -189,6 +190,9 @@ class ProjectService {
       project.technologies = technologiesArray;
     }
 
+    const shouldRemoveCoverImage =
+      removeCoverImage === true || removeCoverImage === "true";
+
     // Handle cover image update if new file is uploaded
     if (fileData) {
       // Delete old cover image from cloudinary if it exists
@@ -215,6 +219,30 @@ class ProjectService {
       project.coverImagePublicId = coverImagePublicId || "";
       project.coverImageFileName = fileName;
       project.coverImageFileSize = fileSize;
+    } else if (shouldRemoveCoverImage) {
+      // Remove existing cover image when explicitly requested.
+      if (project.coverImage && project.coverImage !== "") {
+        try {
+          if (project.coverImage.startsWith("/uploads/")) {
+            const localPath = path.join(__dirname, "..", "public", project.coverImage);
+            if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+          } else {
+            const oldPublicId =
+              project.coverImagePublicId ||
+              extractPublicIdFromCloudinaryUrl(project.coverImage);
+            if (oldPublicId) {
+              await deleteFromCloudinary(oldPublicId, { resource_type: "image" });
+            }
+          }
+        } catch (error) {
+          console.error("Error deleting project cover image:", error);
+        }
+      }
+
+      project.coverImage = "";
+      project.coverImagePublicId = "";
+      project.coverImageFileName = "";
+      project.coverImageFileSize = 0;
     }
 
     project.updatedAt = new Date();

@@ -11,6 +11,7 @@ const {
   getMutualConnections,
   getRecentConnectionNotifications,
   markConnectionNotificationRead,
+  markAllConnectionNotificationsRead,
   deleteConnectionNotification,
 } = require("../controllers/connectionRequestController");
 
@@ -22,6 +23,7 @@ router.get("/friends", protect, getConnectedUsers);
 router.get("/mutual/:targetUserId", protect, getMutualConnections);
 router.get("/notifications", protect, getRecentConnectionNotifications);
 router.post("/notifications/read", protect, markConnectionNotificationRead);
+router.post("/notifications/read-all", protect, markAllConnectionNotificationsRead);
 router.post("/notifications/delete", protect, deleteConnectionNotification);
 router.post("/remove", protect, removeConnection);
 

@@ -783,6 +783,46 @@ exports.markConnectionNotificationRead = async (req, res, next) => {
   }
 };
 
+exports.markAllConnectionNotificationsRead = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId || !isValidObjectId(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    await Notification.updateMany(
+      {
+        user: userId,
+        type: {
+          $in: FEED_NOTIFICATION_TYPES,
+        },
+        isRead: false,
+      },
+      { $set: { isRead: true } }
+    );
+
+    const unreadCount = await Notification.countDocuments({
+      user: userId,
+      type: {
+        $in: FEED_NOTIFICATION_TYPES,
+      },
+      isRead: false,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "All notifications marked as read",
+      unreadCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.deleteConnectionNotification = async (req, res, next) => {
   try {
     const userId = req.user?.id;

@@ -289,6 +289,37 @@ exports.sendMessage = async (req, res, next) => {
   }
 };
 
+exports.markAllMessagesRead = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId || !isValidObjectId(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    const readAt = new Date();
+    const result = await Message.updateMany(
+      {
+        receiver: userId,
+        readAt: null,
+      },
+      {
+        $set: { readAt },
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "All messages marked as read",
+      updatedCount: result?.modifiedCount || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.deleteConversation = async (req, res, next) => {
   try {
     const userId = req.user?.id;
