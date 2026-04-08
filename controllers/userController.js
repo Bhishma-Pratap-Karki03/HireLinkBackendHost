@@ -37,7 +37,7 @@ exports.registerUser = async (req, res, next) => {
       fullName,
       email,
       password,
-      userType
+      userType,
     );
 
     // Existing account but not verified: guide user to verification flow.
@@ -88,7 +88,7 @@ exports.registerUser = async (req, res, next) => {
   }
 };
 
-// Handle user login request
+// Handle user login request (Login Feature))
 exports.loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -161,7 +161,7 @@ exports.listCandidates = async (req, res, next) => {
       isVerified: true,
     })
       .select(
-        "fullName email currentJobTitle address profilePicture skills experience"
+        "fullName email currentJobTitle address profilePicture skills experience",
       )
       .lean();
 
@@ -452,14 +452,19 @@ exports.getAdminDashboardStats = async (req, res, next) => {
     const jobsSeriesMap = toSeriesMap(jobsSeriesAgg);
     const applicationsSeriesMap = toSeriesMap(applicationsSeriesAgg);
 
-    const [totalUsers, totalCandidates, totalRecruiters, blockedUsers, activeUsers] =
-      await Promise.all([
-        User.countDocuments({ email: { $ne: ADMIN_EMAIL } }),
-        User.countDocuments({ role: "candidate", email: { $ne: ADMIN_EMAIL } }),
-        User.countDocuments({ role: "recruiter", email: { $ne: ADMIN_EMAIL } }),
-        User.countDocuments({ isBlocked: true, email: { $ne: ADMIN_EMAIL } }),
-        User.countDocuments({ isBlocked: false, email: { $ne: ADMIN_EMAIL } }),
-      ]);
+    const [
+      totalUsers,
+      totalCandidates,
+      totalRecruiters,
+      blockedUsers,
+      activeUsers,
+    ] = await Promise.all([
+      User.countDocuments({ email: { $ne: ADMIN_EMAIL } }),
+      User.countDocuments({ role: "candidate", email: { $ne: ADMIN_EMAIL } }),
+      User.countDocuments({ role: "recruiter", email: { $ne: ADMIN_EMAIL } }),
+      User.countDocuments({ isBlocked: true, email: { $ne: ADMIN_EMAIL } }),
+      User.countDocuments({ isBlocked: false, email: { $ne: ADMIN_EMAIL } }),
+    ]);
 
     const [
       totalJobs,
@@ -520,7 +525,9 @@ exports.getAdminDashboardStats = async (req, res, next) => {
         createdAt: dateRangeQuery,
       }),
       User.find({ ...userRangeBase })
-        .select("fullName email role createdAt lastLoginAt isBlocked profilePicture")
+        .select(
+          "fullName email role createdAt lastLoginAt isBlocked profilePicture",
+        )
         .sort({ createdAt: -1 })
         .limit(5)
         .lean(),
@@ -566,11 +573,7 @@ exports.getAdminDashboardStats = async (req, res, next) => {
         {
           $group: {
             _id: {
-              $cond: [
-                { $in: ["$status", [null, ""]] },
-                "unknown",
-                "$status",
-              ],
+              $cond: [{ $in: ["$status", [null, ""]] }, "unknown", "$status"],
             },
             count: { $sum: 1 },
           },
@@ -596,13 +599,19 @@ exports.getAdminDashboardStats = async (req, res, next) => {
         {
           $addFields: {
             recruiterName: {
-              $ifNull: [{ $arrayElemAt: ["$recruiter.fullName", 0] }, "Unknown company"],
+              $ifNull: [
+                { $arrayElemAt: ["$recruiter.fullName", 0] },
+                "Unknown company",
+              ],
             },
             recruiterPicture: {
               $ifNull: [{ $arrayElemAt: ["$recruiter.profilePicture", 0] }, ""],
             },
             recruiterCreatedAt: {
-              $ifNull: [{ $arrayElemAt: ["$recruiter.createdAt", 0] }, new Date(0)],
+              $ifNull: [
+                { $arrayElemAt: ["$recruiter.createdAt", 0] },
+                new Date(0),
+              ],
             },
           },
         },
@@ -652,55 +661,56 @@ exports.getAdminDashboardStats = async (req, res, next) => {
 
     const adminAssessmentIdValues = adminAssessmentIds.map((item) => item._id);
 
-    const [adminAttemptStatusAgg, adminTopAssessmentAttemptsAgg, adminQuizScoreAgg] =
-      await Promise.all([
-        AssessmentAttempt.aggregate([
-          {
-            $match: {
-              assessmentSource: "admin",
-              assessment: { $in: adminAssessmentIdValues },
-              createdAt: dateRangeQuery,
-            },
+    const [
+      adminAttemptStatusAgg,
+      adminTopAssessmentAttemptsAgg,
+      adminQuizScoreAgg,
+    ] = await Promise.all([
+      AssessmentAttempt.aggregate([
+        {
+          $match: {
+            assessmentSource: "admin",
+            assessment: { $in: adminAssessmentIdValues },
+            createdAt: dateRangeQuery,
           },
-          {
-            $group: {
-              _id: { $ifNull: ["$status", "unknown"] },
-              count: { $sum: 1 },
-            },
+        },
+        {
+          $group: {
+            _id: { $ifNull: ["$status", "unknown"] },
+            count: { $sum: 1 },
           },
-          { $sort: { count: -1 } },
-        ]),
-        AssessmentAttempt.aggregate([
-          {
-            $match: {
-              assessmentSource: "admin",
-              assessment: { $in: adminAssessmentIdValues },
-              status: "submitted",
-              createdAt: dateRangeQuery,
-            },
+        },
+        { $sort: { count: -1 } },
+      ]),
+      AssessmentAttempt.aggregate([
+        {
+          $match: {
+            assessmentSource: "admin",
+            assessment: { $in: adminAssessmentIdValues },
+            status: "submitted",
+            createdAt: dateRangeQuery,
           },
-          { $group: { _id: "$assessment", attempts: { $sum: 1 } } },
-          { $sort: { attempts: -1 } },
-          { $limit: 5 },
-        ]),
-        AssessmentAttempt.aggregate(
-          [
-            {
-              $match: {
-                assessmentSource: "admin",
-                assessment: {
-                  $in: adminAssessmentIds
-                    .filter((item) => item.type === "quiz")
-                    .map((item) => item._id),
-                },
-                status: "submitted",
-                createdAt: dateRangeQuery,
-              },
+        },
+        { $group: { _id: "$assessment", attempts: { $sum: 1 } } },
+        { $sort: { attempts: -1 } },
+        { $limit: 5 },
+      ]),
+      AssessmentAttempt.aggregate([
+        {
+          $match: {
+            assessmentSource: "admin",
+            assessment: {
+              $in: adminAssessmentIds
+                .filter((item) => item.type === "quiz")
+                .map((item) => item._id),
             },
-            { $group: { _id: null, avgScore: { $avg: "$score" } } },
-          ],
-        ),
-      ]);
+            status: "submitted",
+            createdAt: dateRangeQuery,
+          },
+        },
+        { $group: { _id: null, avgScore: { $avg: "$score" } } },
+      ]),
+    ]);
 
     const totalAttemptCount = adminAttemptStatusAgg.reduce(
       (sum, item) => sum + (item.count || 0),
@@ -759,10 +769,14 @@ exports.getAdminDashboardStats = async (req, res, next) => {
                 values: adminAttemptStatusAgg.map((item) => item.count),
               },
             },
-            topAssessmentsByAttempts: adminTopAssessmentAttemptsAgg.map((item) => ({
-              title: adminAssessmentTitleMap[String(item._id)] || "Untitled assessment",
-              attempts: item.attempts || 0,
-            })),
+            topAssessmentsByAttempts: adminTopAssessmentAttemptsAgg.map(
+              (item) => ({
+                title:
+                  adminAssessmentTitleMap[String(item._id)] ||
+                  "Untitled assessment",
+                attempts: item.attempts || 0,
+              }),
+            ),
           },
         },
         ats: {
@@ -780,7 +794,9 @@ exports.getAdminDashboardStats = async (req, res, next) => {
           labels,
           usersCreated: labels.map((label) => usersSeriesMap[label] || 0),
           jobsPosted: labels.map((label) => jobsSeriesMap[label] || 0),
-          applications: labels.map((label) => applicationsSeriesMap[label] || 0),
+          applications: labels.map(
+            (label) => applicationsSeriesMap[label] || 0,
+          ),
         },
         distributions: {
           jobTypes: {
@@ -821,7 +837,10 @@ exports.getAdminDashboardStats = async (req, res, next) => {
 // Recruiter: dashboard insights
 exports.getRecruiterDashboardStats = async (req, res, next) => {
   try {
-    if (!req.user || String(req.user.role || "").toLowerCase() !== "recruiter") {
+    if (
+      !req.user ||
+      String(req.user.role || "").toLowerCase() !== "recruiter"
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only recruiters can access this resource",
@@ -982,7 +1001,9 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
         createdAt: dateRangeQuery,
       }),
       JobPost.aggregate([
-        { $match: { recruiterId: recruiterObjectId, createdAt: dateRangeQuery } },
+        {
+          $match: { recruiterId: recruiterObjectId, createdAt: dateRangeQuery },
+        },
         {
           $group: {
             _id: {
@@ -995,7 +1016,12 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
       ]),
       hasRecruiterJobs
         ? AppliedJob.aggregate([
-            { $match: { job: { $in: recruiterJobIdValues }, createdAt: dateRangeQuery } },
+            {
+              $match: {
+                job: { $in: recruiterJobIdValues },
+                createdAt: dateRangeQuery,
+              },
+            },
             {
               $group: {
                 _id: {
@@ -1028,11 +1054,17 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
           ])
         : [],
       JobPost.aggregate([
-        { $match: { recruiterId: recruiterObjectId, createdAt: dateRangeQuery } },
+        {
+          $match: { recruiterId: recruiterObjectId, createdAt: dateRangeQuery },
+        },
         {
           $group: {
             _id: {
-              $cond: [{ $in: ["$jobType", [null, ""]] }, "Not specified", "$jobType"],
+              $cond: [
+                { $in: ["$jobType", [null, ""]] },
+                "Not specified",
+                "$jobType",
+              ],
             },
             count: { $sum: 1 },
           },
@@ -1040,11 +1072,17 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
         { $sort: { count: -1 } },
       ]),
       JobPost.aggregate([
-        { $match: { recruiterId: recruiterObjectId, createdAt: dateRangeQuery } },
+        {
+          $match: { recruiterId: recruiterObjectId, createdAt: dateRangeQuery },
+        },
         {
           $group: {
             _id: {
-              $cond: [{ $in: ["$workMode", [null, ""]] }, "Not specified", "$workMode"],
+              $cond: [
+                { $in: ["$workMode", [null, ""]] },
+                "Not specified",
+                "$workMode",
+              ],
             },
             count: { $sum: 1 },
           },
@@ -1053,10 +1091,21 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
       ]),
       hasRecruiterJobs
         ? AppliedJob.aggregate([
-            { $match: { job: { $in: recruiterJobIdValues }, createdAt: dateRangeQuery } },
+            {
+              $match: {
+                job: { $in: recruiterJobIdValues },
+                createdAt: dateRangeQuery,
+              },
+            },
             {
               $group: {
-                _id: { $cond: [{ $in: ["$status", [null, ""]] }, "unknown", "$status"] },
+                _id: {
+                  $cond: [
+                    { $in: ["$status", [null, ""]] },
+                    "unknown",
+                    "$status",
+                  ],
+                },
                 count: { $sum: 1 },
               },
             },
@@ -1065,7 +1114,12 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
         : [],
       hasRecruiterJobs
         ? AppliedJob.aggregate([
-            { $match: { job: { $in: recruiterJobIdValues }, createdAt: dateRangeQuery } },
+            {
+              $match: {
+                job: { $in: recruiterJobIdValues },
+                createdAt: dateRangeQuery,
+              },
+            },
             { $group: { _id: "$job", applicants: { $sum: 1 } } },
             {
               $lookup: {
@@ -1079,7 +1133,12 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
               $project: {
                 _id: 0,
                 jobId: "$_id",
-                title: { $ifNull: [{ $arrayElemAt: ["$job.jobTitle", 0] }, "Untitled role"] },
+                title: {
+                  $ifNull: [
+                    { $arrayElemAt: ["$job.jobTitle", 0] },
+                    "Untitled role",
+                  ],
+                },
                 applicants: 1,
               },
             },
@@ -1088,11 +1147,17 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
           ])
         : [],
       hasRecruiterJobs
-        ? AppliedJob.find({ job: { $in: recruiterJobIdValues }, createdAt: dateRangeQuery })
+        ? AppliedJob.find({
+            job: { $in: recruiterJobIdValues },
+            createdAt: dateRangeQuery,
+          })
             .select("status createdAt candidate job")
             .sort({ createdAt: -1 })
             .limit(6)
-            .populate({ path: "candidate", select: "fullName email profilePicture" })
+            .populate({
+              path: "candidate",
+              select: "fullName email profilePicture",
+            })
             .populate({ path: "job", select: "jobTitle" })
             .lean()
         : [],
@@ -1106,7 +1171,10 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
         },
         { $sort: { count: -1 } },
       ]),
-      RecruiterAssessment.find({ createdBy: recruiterId, createdAt: dateRangeQuery })
+      RecruiterAssessment.find({
+        createdBy: recruiterId,
+        createdAt: dateRangeQuery,
+      })
         .select("_id title")
         .lean(),
     ]);
@@ -1114,7 +1182,9 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
     const jobsSeriesMap = toSeriesMap(jobsSeriesAgg);
     const applicationsSeriesMap = toSeriesMap(applicationsSeriesAgg);
     const hiredSeriesMap = toSeriesMap(hiredSeriesAgg);
-    const recruiterAssessmentIdValues = recruiterAssessmentIds.map((item) => item._id);
+    const recruiterAssessmentIdValues = recruiterAssessmentIds.map(
+      (item) => item._id,
+    );
 
     const recruiterAttemptsAgg = recruiterAssessmentIdValues.length
       ? await AssessmentAttempt.aggregate([
@@ -1191,7 +1261,8 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
             },
           },
           topAssessmentsByAttempts: recruiterAttemptsAgg.map((item) => ({
-            title: assessmentTitleMap[String(item._id)] || "Untitled assessment",
+            title:
+              assessmentTitleMap[String(item._id)] || "Untitled assessment",
             attempts: item.attempts || 0,
           })),
         },
@@ -1206,7 +1277,9 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
         trends: {
           labels,
           jobsPosted: labels.map((label) => jobsSeriesMap[label] || 0),
-          applicationsReceived: labels.map((label) => applicationsSeriesMap[label] || 0),
+          applicationsReceived: labels.map(
+            (label) => applicationsSeriesMap[label] || 0,
+          ),
           hires: labels.map((label) => hiredSeriesMap[label] || 0),
         },
         distributions: {
@@ -1239,7 +1312,10 @@ exports.getRecruiterDashboardStats = async (req, res, next) => {
 // Candidate: dashboard insights
 exports.getCandidateDashboardStats = async (req, res, next) => {
   try {
-    if (!req.user || String(req.user.role || "").toLowerCase() !== "candidate") {
+    if (
+      !req.user ||
+      String(req.user.role || "").toLowerCase() !== "candidate"
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only candidates can access this resource",
@@ -1314,7 +1390,10 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
       recommendationItemsAgg,
     ] = await Promise.all([
       AppliedJob.countDocuments({ candidate: candidateId }),
-      AppliedJob.countDocuments({ candidate: candidateId, createdAt: dateRangeQuery }),
+      AppliedJob.countDocuments({
+        candidate: candidateId,
+        createdAt: dateRangeQuery,
+      }),
       AppliedJob.countDocuments({
         candidate: candidateId,
         status: "reviewed",
@@ -1351,11 +1430,24 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
         createdAt: { $lte: staleCutoff },
       }),
       SavedJob.countDocuments({ candidate: candidateId }),
-      SavedJob.countDocuments({ candidate: candidateId, createdAt: dateRangeQuery }),
+      SavedJob.countDocuments({
+        candidate: candidateId,
+        createdAt: dateRangeQuery,
+      }),
       RecommendationHistory.countDocuments({ candidate: candidateId }),
-      RecommendationHistory.countDocuments({ candidate: candidateId, createdAt: dateRangeQuery }),
-      Message.countDocuments({ receiver: candidateId, createdAt: dateRangeQuery }),
-      Message.countDocuments({ receiver: candidateId, readAt: null, createdAt: dateRangeQuery }),
+      RecommendationHistory.countDocuments({
+        candidate: candidateId,
+        createdAt: dateRangeQuery,
+      }),
+      Message.countDocuments({
+        receiver: candidateId,
+        createdAt: dateRangeQuery,
+      }),
+      Message.countDocuments({
+        receiver: candidateId,
+        readAt: null,
+        createdAt: dateRangeQuery,
+      }),
       ConnectionRequest.countDocuments({
         recipient: candidateId,
         status: "pending",
@@ -1431,26 +1523,8 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
         { $match: { candidate: candidateObjectId, createdAt: dateRangeQuery } },
         {
           $group: {
-            _id: { $cond: [{ $in: ["$status", [null, ""]] }, "unknown", "$status"] },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { count: -1 } },
-      ]),
-      AppliedJob.aggregate([
-        { $match: { candidate: candidateObjectId, createdAt: dateRangeQuery } },
-        {
-          $lookup: {
-            from: "jobposts",
-            localField: "job",
-            foreignField: "_id",
-            as: "jobInfo",
-          },
-        },
-        {
-          $group: {
             _id: {
-              $ifNull: [{ $arrayElemAt: ["$jobInfo.workMode", 0] }, "not specified"],
+              $cond: [{ $in: ["$status", [null, ""]] }, "unknown", "$status"],
             },
             count: { $sum: 1 },
           },
@@ -1470,7 +1544,33 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
         {
           $group: {
             _id: {
-              $ifNull: [{ $arrayElemAt: ["$jobInfo.jobType", 0] }, "not specified"],
+              $ifNull: [
+                { $arrayElemAt: ["$jobInfo.workMode", 0] },
+                "not specified",
+              ],
+            },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1 } },
+      ]),
+      AppliedJob.aggregate([
+        { $match: { candidate: candidateObjectId, createdAt: dateRangeQuery } },
+        {
+          $lookup: {
+            from: "jobposts",
+            localField: "job",
+            foreignField: "_id",
+            as: "jobInfo",
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $ifNull: [
+                { $arrayElemAt: ["$jobInfo.jobType", 0] },
+                "not specified",
+              ],
             },
             count: { $sum: 1 },
           },
@@ -1492,7 +1592,12 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
           $project: {
             _id: 0,
             jobId: "$_id",
-            title: { $ifNull: [{ $arrayElemAt: ["$jobInfo.jobTitle", 0] }, "Untitled role"] },
+            title: {
+              $ifNull: [
+                { $arrayElemAt: ["$jobInfo.jobTitle", 0] },
+                "Untitled role",
+              ],
+            },
             applicants: 1,
           },
         },
@@ -1510,7 +1615,11 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
         {
           $project: {
             count: {
-              $cond: [{ $isArray: "$recommendations" }, { $size: "$recommendations" }, 0],
+              $cond: [
+                { $isArray: "$recommendations" },
+                { $size: "$recommendations" },
+                0,
+              ],
             },
           },
         },
@@ -1541,7 +1650,8 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
       id: item._id,
       jobTitle: item.job?.jobTitle || "Untitled role",
       location: item.job?.location || "-",
-      companyName: recruiterNameMap[String(item.job?.recruiterId || "")] || "Company",
+      companyName:
+        recruiterNameMap[String(item.job?.recruiterId || "")] || "Company",
       status: item.status || "submitted",
       appliedAt: item.createdAt,
     }));
@@ -1551,15 +1661,26 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
     const adminAssessmentsSeriesMap = toSeriesMap(adminAssessmentsTrendAgg);
 
     const recommendationItemsTotalInRange =
-      recommendationItemsAgg.length > 0 ? recommendationItemsAgg[0].total || 0 : 0;
+      recommendationItemsAgg.length > 0
+        ? recommendationItemsAgg[0].total || 0
+        : 0;
 
     const respondedInRange =
-      reviewedInRange + shortlistedInRange + interviewInRange + hiredInRange + rejectedInRange;
+      reviewedInRange +
+      shortlistedInRange +
+      interviewInRange +
+      hiredInRange +
+      rejectedInRange;
     const responseRate = applicationsInRange
       ? Number(((respondedInRange / applicationsInRange) * 100).toFixed(1))
       : 0;
     const interviewRate = applicationsInRange
-      ? Number((((interviewInRange + hiredInRange) / applicationsInRange) * 100).toFixed(1))
+      ? Number(
+          (
+            ((interviewInRange + hiredInRange) / applicationsInRange) *
+            100
+          ).toFixed(1),
+        )
       : 0;
     const hireRate = applicationsInRange
       ? Number(((hiredInRange / applicationsInRange) * 100).toFixed(1))
@@ -1613,9 +1734,13 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
         },
         trends: {
           labels,
-          applications: labels.map((label) => applicationsSeriesMap[label] || 0),
+          applications: labels.map(
+            (label) => applicationsSeriesMap[label] || 0,
+          ),
           savedJobs: labels.map((label) => savedSeriesMap[label] || 0),
-          adminAssessments: labels.map((label) => adminAssessmentsSeriesMap[label] || 0),
+          adminAssessments: labels.map(
+            (label) => adminAssessmentsSeriesMap[label] || 0,
+          ),
         },
         distributions: {
           applicationStatuses: {
@@ -1643,8 +1768,3 @@ exports.getCandidateDashboardStats = async (req, res, next) => {
     next(error);
   }
 };
-
-
-
-
-

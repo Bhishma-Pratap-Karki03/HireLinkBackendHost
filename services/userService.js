@@ -62,7 +62,9 @@ class UserService {
         ) {
           const timeLeft = Math.max(
             0,
-            Math.ceil((existingUser.verificationCodeExpires - new Date()) / 1000)
+            Math.ceil(
+              (existingUser.verificationCodeExpires - new Date()) / 1000,
+            ),
           );
 
           return {
@@ -113,9 +115,9 @@ class UserService {
 
     await newUser.save();
     const emailSent = await sendVerificationEmail(email, verificationCode);
-        if (!emailSent) {
-          throw new Error("Failed to send verification email. Please try again.");
-        }
+    if (!emailSent) {
+      throw new Error("Failed to send verification email. Please try again.");
+    }
 
     return {
       success: true,
@@ -129,7 +131,7 @@ class UserService {
     };
   }
 
-  // Authenticate user login
+  // Authenticate user login (Login Feature)
   async loginUser(email, password) {
     // Normalize email and trim password
     const normalizedEmail = email.trim().toLowerCase();
@@ -163,7 +165,7 @@ class UserService {
       // If verification code is still valid, inform user to verify first
       if (user.verificationCode && user.verificationCodeExpires > new Date()) {
         const timeLeft = Math.ceil(
-          (user.verificationCodeExpires - new Date()) / 1000 / 60
+          (user.verificationCodeExpires - new Date()) / 1000 / 60,
         );
         throw {
           name: "VerificationRequired",
@@ -181,9 +183,14 @@ class UserService {
         user.verificationCodeExpires = verificationCodeExpires;
         await user.save();
 
-        const emailSent = await sendVerificationEmail(user.email, verificationCode);
+        const emailSent = await sendVerificationEmail(
+          user.email,
+          verificationCode,
+        );
         if (!emailSent) {
-          throw new Error("Failed to send verification email. Please try again.");
+          throw new Error(
+            "Failed to send verification email. Please try again.",
+          );
         }
 
         throw {
@@ -199,13 +206,13 @@ class UserService {
     // Verify the password matches the hashed password in database
     const isPasswordValid = await bcrypt.compare(
       trimmedPassword,
-      user.password
+      user.password,
     );
     if (!isPasswordValid) {
       throw new Error("Invalid email or password");
     }
 
-    // Generate JWT token for authenticated session
+    // Generate JWT token for authenticated session (JWT Creation)
     const token = generateToken(user._id);
 
     user.lastLoginAt = new Date();
@@ -213,7 +220,7 @@ class UserService {
 
     // Get user data without sensitive information
     const userData = await User.findById(user._id).select(
-      "-password -verificationCode -resetCode"
+      "-password -verificationCode -resetCode",
     );
 
     return {
@@ -241,5 +248,3 @@ class UserService {
 
 // Export a single instance of the UserService class
 module.exports = new UserService();
-
-
