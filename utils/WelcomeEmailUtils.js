@@ -1,49 +1,34 @@
-﻿const { sendEmail } = require("./mailSender");
+const { sendEmail } = require("./mailSender");
+const { buildEmailTemplate } = require("./emailTemplate");
 
 const sendWelcomeEmail = async (email, fullName, role) => {
   try {
-        const appName = process.env.APP_NAME || "HireLink";
+    const appName = process.env.APP_NAME || "HireLink";
 
-    // Determine user role for personalized message
     const userType = role === "candidate" ? "Candidate" : "Recruiter";
     const platformDescription =
       role === "candidate"
-        ? "Apply for jobs, take assessments, and build your skill portfolio"
-        : "Post job vacancies, hire candidates, and manage your recruitment process";
+        ? "Apply for jobs, take assessments, and build your skill portfolio."
+        : "Post jobs, review applicants, and manage your hiring process.";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`,
       to: email,
       subject: `Welcome to ${appName}!`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #0068ce; margin: 0;">Welcome to ${appName}!</h1>
+      html: buildEmailTemplate({
+        appName,
+        title: `Welcome to ${appName}!`,
+        introHtml: `<p style="margin:0 0 12px;font-size:15px;line-height:1.7;">Hello <strong>${fullName}</strong>,</p>`,
+        contentHtml: `
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;">Thank you for verifying your email and joining <strong>${appName}</strong>.</p>
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;">Your account is now active as a <strong>${userType}</strong>.</p>
+          <div style="background:#f4f7fc;border:1px solid #dbe5f0;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:14px;line-height:1.7;">
+            <strong>What you can do:</strong><br/>
+            ${platformDescription}
           </div>
-          
-          <p>Hello <strong>${fullName}</strong>,</p>
-          
-          <p>Thank you for verifying your email address and joining <strong>${appName}</strong>!</p>
-          
-          <p>You are now registered as a <strong>${userType}</strong>. Welcome to our smart job and skill portfolio platform!</p>
-          
-          <div style="background-color: #f4f4f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>As a ${userType}, you can:</strong></p>
-            <p>${platformDescription}</p>
-          </div>
-          
-          <p>We're excited to have you on board! Start exploring the platform features that match your needs.</p>
-          
-          <p>If you have any questions, feel free to contact our support team.</p>
-          
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-          
-          <p style="color: #666; font-size: 12px; text-align: center;">
-            Â© ${new Date().getFullYear()} ${appName}. All rights reserved.<br/>
-            This is an automated welcome message.
-          </p>
-        </div>
-      `,
+          <p style="margin:0;font-size:14px;line-height:1.7;">We are excited to have you onboard.</p>
+        `,
+      }),
     };
 
     await sendEmail(mailOptions);
@@ -56,6 +41,3 @@ const sendWelcomeEmail = async (email, fullName, role) => {
 };
 
 module.exports = { sendWelcomeEmail };
-
-
-

@@ -1,39 +1,27 @@
-﻿const { sendEmail } = require("./mailSender");
+const { sendEmail } = require("./mailSender");
+const { buildEmailTemplate, buildCodeCard } = require("./emailTemplate");
 
 const sendPasswordResetEmail = async (email, resetCode) => {
   try {
-        const appName = process.env.APP_NAME || "HireLink";
+    const appName = process.env.APP_NAME || "HireLink";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`,
       to: email,
       subject: `${appName} - Password Reset Code`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #0068ce; margin: 0;">${appName}</h1>
-          </div>
-          
-          <h3>Password Reset Request</h3>
-          <p>We received a request to reset your password. Use the following code to reset your password:</p>
-          
-          <div style="background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px;">
-            <h1 style="color: #0068ce; letter-spacing: 10px; margin: 0; font-size: 32px;">${resetCode}</h1>
-          </div>
-          
-          <p>Enter this code on the password reset page to continue.</p>
-          <p><strong>This code will expire in 15 minutes.</strong></p>
-          
-          <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
-          
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-          
-          <p style="color: #666; font-size: 12px; text-align: center;">
-            Â© ${new Date().getFullYear()} ${appName}. All rights reserved.<br/>
-            This is an automated message, please do not reply to this email.
-          </p>
-        </div>
-      `,
+      html: buildEmailTemplate({
+        appName,
+        title: "Password Reset Request",
+        introHtml:
+          "<p style='margin:0 0 12px;font-size:15px;line-height:1.7;'>We received a request to reset your password. Use this code to continue.</p>",
+        contentHtml: `
+          ${buildCodeCard(resetCode)}
+          <p style="margin:0 0 8px;font-size:14px;line-height:1.7;">Enter this code on the reset-password page.</p>
+          <p style="margin:0;font-size:14px;line-height:1.7;"><strong>This code will expire in 15 minutes.</strong></p>
+        `,
+        noteHtml:
+          "<p style='margin:18px 0 0;font-size:13px;color:#5f6f84;'>If you did not request this, you can ignore this email.</p>",
+      }),
     };
 
     await sendEmail(mailOptions);
@@ -47,40 +35,23 @@ const sendPasswordResetEmail = async (email, resetCode) => {
 
 const sendPasswordChangedEmail = async (email, fullName) => {
   try {
-        const appName = process.env.APP_NAME || "HireLink";
+    const appName = process.env.APP_NAME || "HireLink";
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`, 
+      from: process.env.EMAIL_FROM || `${appName} <hirelinknp@gmail.com>`,
       to: email,
       subject: `${appName} - Password Changed Successfully`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #0068ce; margin: 0;">${appName}</h1>
+      html: buildEmailTemplate({
+        appName,
+        title: "Password Changed Successfully",
+        introHtml: `<p style="margin:0 0 12px;font-size:15px;line-height:1.7;">Hello <strong>${fullName}</strong>,</p>`,
+        contentHtml: `
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.7;">Your password has been changed successfully.</p>
+          <div style="background:#fff7e8;border:1px solid #ffe3ac;border-radius:10px;padding:12px 14px;margin:14px 0;color:#7a5900;font-size:13px;line-height:1.7;">
+            <strong>Security Notice:</strong> If this was not you, please contact support immediately.
           </div>
-          
-          <h3>Password Changed Successfully</h3>
-          <p>Hello <strong>${fullName}</strong>,</p>
-          
-          <p>Your password has been changed successfully.</p>
-          
-          <div style="background-color: #f4f4f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p><strong>Security Notice:</strong></p>
-            <p>If you did not make this change, please contact our support team immediately.</p>
-          </div>
-          
-          <p>You can now login with your new password.</p>
-          
-          <p>Thank you for keeping your account secure!</p>
-          
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
-          
-          <p style="color: #666; font-size: 12px; text-align: center;">
-            Â© ${new Date().getFullYear()} ${appName}. All rights reserved.<br/>
-            This is an automated security message.
-          </p>
-        </div>
-      `,
+        `,
+      }),
     };
 
     await sendEmail(mailOptions);
@@ -93,6 +64,3 @@ const sendPasswordChangedEmail = async (email, fullName) => {
 };
 
 module.exports = { sendPasswordResetEmail, sendPasswordChangedEmail };
-
-
-
