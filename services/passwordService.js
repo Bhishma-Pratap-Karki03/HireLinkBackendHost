@@ -52,14 +52,8 @@ class PasswordService {
     // Find user by email
     const user = await User.findOne({ email: normalizedEmail });
 
-    // For security, don't reveal if user exists or not
     if (!user) {
-      return {
-        success: true,
-        message:
-          "If an account exists with this email, a password reset code will be sent.",
-        email: normalizedEmail,
-      };
+      throw new Error("No account found with this email.");
     }
 
     const isAdminEmail = normalizedEmail === ADMIN_EMAIL;

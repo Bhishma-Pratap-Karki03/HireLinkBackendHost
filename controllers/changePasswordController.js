@@ -31,7 +31,11 @@ exports.requestPasswordReset = async (req, res, next) => {
     }
 
     // Handle validation errors
-    if (error.message.includes("required") || error.message.includes("valid")) {
+    if (
+      error.message.includes("required") ||
+      error.message.includes("valid") ||
+      error.message.includes("No account found")
+    ) {
       return res.status(400).json({
         success: false,
         message: error.message,
