@@ -80,6 +80,18 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
+    // Treat the deadline day as inclusive; candidates can apply until end of that date.
+    if (job.deadline) {
+      const deadlineEnd = new Date(job.deadline);
+      deadlineEnd.setHours(23, 59, 59, 999);
+      if (new Date() > deadlineEnd) {
+        return res.status(400).json({
+          success: false,
+          message: "This job has expired. Applications are no longer accepted.",
+        });
+      }
+    }
+
     // User must exist
     if (!user) {
       return res.status(404).json({
