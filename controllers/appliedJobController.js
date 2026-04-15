@@ -100,6 +100,41 @@ exports.applyToJob = async (req, res) => {
       });
     }
 
+    // Prevent duplicate applications for the same candidate/job pair.
+    const existingApplication = await AppliedJob.findOne({
+      candidate: userId,
+      job: jobId,
+    })
+      .select("_id status")
+      .lean();
+
+    if (existingApplication) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already applied to this job.",
+      });
+    }
+
+    // Enforce mandatory assessment completion at the API level.
+    if (job.assessmentId && job.assessmentRequired) {
+      const assessmentSource = job.assessmentSource || "recruiter";
+      const submittedAttempt = await AssessmentAttempt.findOne({
+        assessment: job.assessmentId,
+        assessmentSource,
+        candidate: userId,
+        status: "submitted",
+      })
+        .select("_id")
+        .lean();
+
+      if (!submittedAttempt) {
+        return res.status(400).json({
+          success: false,
+          message: "Complete the mandatory assessment before applying.",
+        });
+      }
+    }
+
     // Candidate name used in filename (safe slug)
     const candidateName = sanitize(user.fullName || user.email || "candidate");
 
