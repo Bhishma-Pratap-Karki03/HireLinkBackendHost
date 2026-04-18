@@ -31,7 +31,6 @@ const createAssessment = async (req, res) => {
       maxAttempts,
       status,
       deadline,
-      visibleToRecruiters,
       skillTags,
       quizQuestions,
       writingTask,
@@ -73,7 +72,6 @@ const createAssessment = async (req, res) => {
       maxAttempts: Number(maxAttempts),
       status,
       deadline: deadline || null,
-      visibleToRecruiters: Boolean(visibleToRecruiters),
       skillTags: Array.isArray(skillTags)
         ? skillTags.filter((tag) => String(tag).trim())
         : [],
@@ -237,10 +235,6 @@ const updateAssessment = async (req, res) => {
     assessment.maxAttempts = Number(updates.maxAttempts) || assessment.maxAttempts;
     assessment.status = updates.status || assessment.status;
     assessment.deadline = updates.deadline || assessment.deadline;
-    assessment.visibleToRecruiters =
-      updates.visibleToRecruiters !== undefined
-        ? Boolean(updates.visibleToRecruiters)
-        : assessment.visibleToRecruiters;
     assessment.skillTags = Array.isArray(updates.skillTags)
       ? updates.skillTags
       : assessment.skillTags;

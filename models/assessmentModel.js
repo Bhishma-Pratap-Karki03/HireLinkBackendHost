@@ -31,7 +31,6 @@ const assessmentSchema = new mongoose.Schema(
     maxAttempts: { type: Number, required: true, min: 1 },
     status: { type: String, enum: ["active", "inactive"], required: true },
     deadline: { type: Date },
-    visibleToRecruiters: { type: Boolean, default: true },
     skillTags: [{ type: String, trim: true }],
     // Quiz content.
     quizQuestions: [quizQuestionSchema],
