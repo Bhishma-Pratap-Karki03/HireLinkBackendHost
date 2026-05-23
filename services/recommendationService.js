@@ -56,6 +56,32 @@ const estimateExperienceYears = (user) => {
   return Math.round((totalMonths / 12) * 10) / 10;
 };
 
+/*
+   Utility Function: Build candidate recommendation signals
+   Measures whether the candidate profile has enough data
+   to generate relevant recommendations.
+*/
+const getCandidateRecommendationSignals = (user) => {
+  const skillsCsv = getCandidateSkillsCsv(user);
+  const experienceYears = estimateExperienceYears(user);
+  const location = String(user.address || "").trim();
+
+  const hasSkills = Boolean(skillsCsv.trim());
+  const hasExperience = experienceYears > 0;
+  const hasLocation = Boolean(location);
+
+  return {
+    skillsCsv,
+    experienceYears,
+    location,
+    hasSkills,
+    hasExperience,
+    hasLocation,
+    completenessScore: [hasSkills, hasExperience, hasLocation].filter(Boolean)
+      .length,
+  };
+};
+
 /* 
    Function: Run Python ML Inference
    Executes recommend_infer.py and returns predictions
@@ -118,12 +144,18 @@ const runPythonInference = (inputPath, topk = 10) =>
    Generates AI recommendations for a candidate
 */
 const getRecommendationsForCandidate = async (candidateId, topk = 10) => {
-  const minSkillMatchPercent = 30; // Minimum skill match threshold
-
   // Fetch candidate data
   const user = await User.findById(candidateId).lean();
   if (!user) {
     throw new Error("Candidate not found");
+  }
+
+  const candidateSignals = getCandidateRecommendationSignals(user);
+
+  // If the candidate profile has no usable recommendation signals yet,
+  // return no results rather than noisy matches.
+  if (candidateSignals.completenessScore === 0) {
+    return [];
   }
 
   // Fetch jobs already applied by candidate
@@ -149,9 +181,9 @@ const getRecommendationsForCandidate = async (candidateId, topk = 10) => {
   */
   const payload = {
     candidate: {
-      skills_csv: getCandidateSkillsCsv(user),
-      experience_years: estimateExperienceYears(user),
-      location: user.address || "",
+      skills_csv: candidateSignals.skillsCsv,
+      experience_years: candidateSignals.experienceYears,
+      location: candidateSignals.location,
     },
     jobs: activeJobs.map((job) => ({
       jobId: String(job._id),
@@ -186,10 +218,31 @@ const getRecommendationsForCandidate = async (candidateId, topk = 10) => {
     // Run ML inference
     const recommendations = await runPythonInference(inputPath, topk);
 
-    // Filter recommendations by minimum skill match percentage
-    return recommendations.filter(
-      (item) => Number(item?.skillMatchPercent || 0) >= minSkillMatchPercent,
-    );
+    const minSkillMatchPercent =
+      candidateSignals.completenessScore >= 3
+        ? 30
+        : candidateSignals.completenessScore === 2
+          ? 45
+          : 60;
+
+    // Tighten filtering when candidate profiles are incomplete so weak inputs
+    // do not produce irrelevant recommendations.
+    return recommendations.filter((item) => {
+      const skillMatchPercent = Number(item?.skillMatchPercent || 0);
+      const matchedSkillsCount = Array.isArray(item?.matchedSkills)
+        ? item.matchedSkills.length
+        : 0;
+
+      if (skillMatchPercent < minSkillMatchPercent) {
+        return false;
+      }
+
+      if (candidateSignals.completenessScore <= 1 && matchedSkillsCount === 0) {
+        return false;
+      }
+
+      return true;
+    });
   } finally {
     // Always delete temporary input file
     if (fs.existsSync(inputPath)) {
@@ -204,3 +257,4 @@ const getRecommendationsForCandidate = async (candidateId, topk = 10) => {
 module.exports = {
   getRecommendationsForCandidate,
 };
+
