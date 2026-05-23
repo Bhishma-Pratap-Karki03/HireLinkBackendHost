@@ -82,6 +82,27 @@ const getCandidateRecommendationSignals = (user) => {
   };
 };
 
+/*
+   Utility Function: Check whether a job is still open for fresh recommendations.
+   Stored recommendation history is intentionally not affected by this check.
+*/
+const isJobOpenForRecommendation = (job, now = new Date()) => {
+  const deadline = job?.deadline ? new Date(job.deadline) : null;
+  const hasValidDeadline = deadline && !Number.isNaN(deadline.getTime());
+
+  if (hasValidDeadline) {
+    deadline.setHours(23, 59, 59, 999);
+  }
+
+  return (
+    job &&
+    job.isActive !== false &&
+    String(job.status || "").toLowerCase() === "published" &&
+    hasValidDeadline &&
+    deadline >= now
+  );
+};
+
 /* 
    Function: Run Python ML Inference
    Executes recommend_infer.py and returns predictions
@@ -165,15 +186,16 @@ const getRecommendationsForCandidate = async (candidateId, topk = 10) => {
 
   const appliedSet = new Set(appliedJobs.map((item) => String(item.job)));
 
-  // Fetch all jobs and remove inactive + already applied jobs
+  // Fetch all jobs and keep only fresh, still-open jobs for a new recommendation run.
   const jobs = await JobPost.find({})
     .populate("recruiterId", "profilePicture fullName")
     .lean();
 
+  const now = new Date();
   const activeJobs = jobs.filter(
     (job) =>
       !appliedSet.has(String(job._id)) &&
-      String(job.status || "").toLowerCase() !== "inactive",
+      isJobOpenForRecommendation(job, now),
   );
 
   /*
